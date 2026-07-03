@@ -1,0 +1,3 @@
+-- Star schema centered on the canonical catalog. Written by hand in Phase 3.
+-- Planned tables: dim_items, dim_platforms, fact_listings,
+-- fact_retail_prices, fact_search_interest, fact_social_mentions.

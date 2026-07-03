@@ -1,0 +1,8 @@
+[project]
+name = "grail-predictor"
+version = "0.1.0"
+description = "Predicting which luxury and avant-garde fashion pieces are about to become grails, before the resale market prices them in."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
