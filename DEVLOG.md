@@ -67,3 +67,55 @@ The access landscape moved under the plan between writing it and building it: py
 **What's next**
 
 Phase 2a, text-based entity resolution. The fixtures already carry the problem on purpose: the same Geobasket listed as "43", "US 10", "sz 10", and "27.5cm", conditions ranging from "B" to "Very good condition" to "used, some creasing". Normalize, block, match, measure.
+
+---
+
+## Entity resolution, text first
+
+**What I built**
+
+The four-stage resolution pipeline: normalize (brand vocabulary with title-scan fallback, footwear-to-EU and clothing-to-letter sizing, ordinal conditions including Japanese letter grades, season tags in both SS03 and 03SS orderings), blocking on brand plus category, a multi-signal matcher, and catalog assembly via union-find over above-threshold matches. Reference data in data/reference/ (brands.json, sizing.json). Parquet output. Forty-five new tests, 64 total, all green. Full reasoning and measurement in docs/entity-resolution.md.
+
+**Why these decisions**
+
+The matcher combines a list of signals (title 0.70, season 0.15, price 0.15) even though the list is text-only today. That structure is the whole point: if image similarity earns its way in later, it's one more entry in a tuple, not surgery. Signals with missing data return None and their weight redistributes, so a pair without prices isn't punished for the platform's sparseness.
+
+I went with rapidfuzz over Splink, against the plan's lean, and the reasoning is in docs/entity-resolution.md. Short version: Fellegi-Sunter pays off with many comparison fields and volume enough to estimate per-field probabilities; this problem is one dominant title signal plus two weak helpers, and a deterministic combination I can inspect line by line beats a probabilistic model I'd be fitting on noise. The cost is hand-tuned weights, stated plainly.
+
+Threshold 0.70, with a borderline band from 0.55 logged for review instead of silently guessed. The borderline log turned out to be the most informative artifact of the phase: it's where every trap I planted landed.
+
+**What I learned or got stuck on**
+
+The first full run over-merged and taught me the subset failure mode: token_set_ratio scores a perfect 1.0 when a short title's tokens are a subset of a longer one's, so Vestiaire's "Jacket" matched every Balenciaga jacket in its block and union-find welded them into one item. The fix is a sparsity guard scaling the title score by the informative token count of the sparser title, with a regression test. This one would have been ugly to discover at volume.
+
+Measurement on fixtures: 30 listings, 15 canonical items, 20 listings (67%) resolved into cross-platform items, 10 singletons, 15 borderline pairs. The residual is not random: it's Vestiaire-style sparse-generic titles (where the photo carries the identity), Japanese synonym gaps (blouson vs jacket), and a currency-naive price signal that penalized the GBP Depop ramones against its USD Grailed twin. The 2b decision is recorded as deferred: fixture numbers are an existence proof, not a measurement, so build-or-skip waits for residual numbers from real ingestion volume. The seam is ready either way.
+
+**What's next**
+
+Phase 3, the star schema and loader. The canonical item becomes dim_items and everything else hangs off it.
+
+---
+
+## Schema and warehouse
+
+**What I built**
+
+db/schema.sql by hand: dim_items and dim_platforms, then fact_listings, fact_retail_prices, fact_search_interest, and fact_social_mentions, each with a natural-key UNIQUE constraint, domain CHECKs, and the indexes the marts will actually use. A loader in db/load.py that applies the schema, seeds platforms, and bulk-loads with execute_values, all inserts ON CONFLICT DO NOTHING. docker-compose.yml for a local Postgres 16. docs/erd.md walks every design call. Thirteen new tests: the row builders are pure functions tested dry, the DDL is parsed as Postgres by sqlglot at test time, and the end-to-end load (including a load-twice idempotency assertion) is gated on DATABASE_URL so CI stays green without a database.
+
+**Why these decisions**
+
+DO NOTHING over upsert, deliberately. Asking prices change, and an upsert would silently overwrite history with the latest observation. Keeping the first-landed row is conservative and honest; when price-drop tracking matters, the answer is a price-observation table, not an upsert that eats history.
+
+item_id is nullable on the retail, search, and social facts. Linking a retail product or a Reddit post to a canonical resale item is entity resolution, and doing it in the loader with string equality would fill the warehouse with confident-looking false links. The rows keep their own identities so the linkage can be built properly and backfilled. The spread signal needs this linkage eventually, so it's a named gap, not a forgotten one.
+
+The sold_fields_consistent CHECK exists because a sold_price on an unsold row is a loader bug by definition, and I'd rather the database refuse it than discover it in a mart.
+
+One tradeoff accepted: Postgres treats NULLs as distinct in UNIQUE constraints, so url-less listings bypass the listings natural key. Only fixtures lack urls; synthetic keys for that case would be complexity without a customer.
+
+**What I learned or got stuck on**
+
+The dev container has no Docker and no root, so the live end-to-end load couldn't be verified there. The compromise shaped the design for the better: everything testable without a connection got factored into pure functions, and the one test that genuinely needs Postgres skips itself when DATABASE_URL is absent. The live verification runs on my machine with docker compose up.
+
+**What's next**
+
+Phase 4, the dbt layer: staging, the spread and velocity intermediates, and the two marts the dashboard and model read.

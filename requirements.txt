@@ -9,3 +9,12 @@ requests>=2.31
 beautifulsoup4>=4.12
 trendspy>=0.1  # pytrends was archived April 2025; this is the maintained successor
 praw>=7.7
+
+# Phase 2a: entity resolution
+rapidfuzz>=3.0
+pandas>=2.0
+pyarrow>=15.0
+
+# Phase 3: warehouse
+psycopg2-binary>=2.9
+sqlglot>=23.0  # test-time DDL parsing so CI catches broken schema without a database

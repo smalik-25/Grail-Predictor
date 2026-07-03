@@ -1,0 +1,22 @@
+# Local warehouse for development. Free, disposable, no cloud dependency.
+#   docker compose up -d
+#   make db-schema && make load
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: grail
+      POSTGRES_PASSWORD: grail
+      POSTGRES_DB: grail
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grail"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
