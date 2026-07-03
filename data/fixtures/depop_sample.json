@@ -1,0 +1,50 @@
+[
+  {
+    "id": 4412001,
+    "title": "Rick Owens DRKSHDW ramones lows size uk 9 black",
+    "brand_name": "Rick Owens",
+    "price": {"total_price": "420.00", "currency_name": "GBP"},
+    "sizes": [{"name": "UK 9"}],
+    "condition": "used_good",
+    "slug": "rick-owens-drkshdw-ramones-lows-4412001",
+    "preview": {"640": "https://media-photos.depop.com/b1/4412001/640.jpg"},
+    "date_updated": "2026-06-20T12:00:00Z",
+    "seller_username": "ldnarchive"
+  },
+  {
+    "id": 4412002,
+    "title": "margiela german army trainers gats 41 painted",
+    "brand_name": "Maison Margiela",
+    "price": {"total_price": "180.00", "currency_name": "GBP"},
+    "sizes": [{"name": "UK 7"}],
+    "condition": "used_fair",
+    "slug": "margiela-gats-painted-4412002",
+    "preview": {"640": "https://media-photos.depop.com/b1/4412002/640.jpg"},
+    "date_updated": "2026-06-25T09:30:00Z",
+    "seller_username": "gatcollector"
+  },
+  {
+    "id": 4412003,
+    "title": "ERD enfant riches deprimes tee distressed black",
+    "brand_name": "Enfant Riches Deprimes",
+    "price": {"total_price": "310.00", "currency_name": "USD"},
+    "sizes": [{"name": "M"}],
+    "condition": "used_excellent",
+    "slug": "erd-distressed-tee-4412003",
+    "preview": {"640": "https://media-photos.depop.com/b1/4412003/640.jpg"},
+    "date_updated": "2026-06-28T17:45:00Z",
+    "seller_username": "laripper"
+  },
+  {
+    "id": 4412004,
+    "title": "undercover 85 languid tee jun takahashi rare",
+    "brand_name": "Undercover",
+    "price": {"total_price": "150.00", "currency_name": "USD"},
+    "sizes": [{"name": "L"}],
+    "condition": "used_good",
+    "slug": "undercover-85-languid-tee-4412004",
+    "preview": {"640": "https://media-photos.depop.com/b1/4412004/640.jpg"},
+    "date_updated": "2026-07-01T10:15:00Z",
+    "seller_username": "tokyofinds"
+  }
+]

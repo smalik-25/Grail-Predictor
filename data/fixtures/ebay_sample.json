@@ -1,0 +1,58 @@
+[
+  {
+    "source": "browse",
+    "itemId": "v1|335512345678|0",
+    "title": "Rick Owens Mainline Geobasket Sneakers Black Leather Men's US 10 EU 43",
+    "brand": "Rick Owens",
+    "price": {"value": "1295.00", "currency": "USD"},
+    "condition": "Pre-owned",
+    "itemWebUrl": "https://www.ebay.com/itm/335512345678",
+    "itemCreationDate": "2026-06-05T10:22:00.000Z",
+    "image": {"imageUrl": "https://i.ebayimg.com/images/g/abc/s-l1600.jpg"},
+    "seller": {"username": "tokyo_archive_store"}
+  },
+  {
+    "source": "browse",
+    "itemId": "v1|335512345679|0",
+    "title": "Maison Martin Margiela Replica German Army Trainers 42 white gray suede",
+    "brand": "Maison Margiela",
+    "price": {"value": "240.00", "currency": "USD"},
+    "condition": "Pre-owned",
+    "itemWebUrl": "https://www.ebay.com/itm/335512345679",
+    "itemCreationDate": "2026-06-18T15:41:00.000Z",
+    "image": {"imageUrl": "https://i.ebayimg.com/images/g/def/s-l1600.jpg"},
+    "seller": {"username": "euro_consign"}
+  },
+  {
+    "source": "sold_page",
+    "title": "RICK OWENS geo basket high top sneakers sz US 10 black leather mainline",
+    "sold_price": "$1,225.00",
+    "sold_date": "Sold Jun 14, 2026",
+    "listing_url": "https://www.ebay.com/itm/335512340001",
+    "currency": "USD"
+  },
+  {
+    "source": "sold_page",
+    "title": "Number Nine Kurt Cardigan mohair SS03 sz 3 Takahiro Miyashita",
+    "sold_price": "$2,950.00",
+    "sold_date": "Sold May 30, 2026",
+    "listing_url": "https://www.ebay.com/itm/335512340002",
+    "currency": "USD"
+  },
+  {
+    "source": "sold_page",
+    "title": "Undercover SS03 Scab jacket crust punk archive Jun Takahashi",
+    "sold_price": "$4,650.00",
+    "sold_date": "Sold Apr 22, 2026",
+    "listing_url": "https://www.ebay.com/itm/335512340003",
+    "currency": "USD"
+  },
+  {
+    "source": "sold_page",
+    "title": "Balenciaga 2007 Ghesquiere bomber jacket size 48 archive runway",
+    "sold_price": "$1,890.00",
+    "sold_date": "Sold Jun 27, 2026",
+    "listing_url": "https://www.ebay.com/itm/335512340004",
+    "currency": "USD"
+  }
+]

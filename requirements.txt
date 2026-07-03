@@ -3,3 +3,9 @@
 
 # Phase 0
 pytest>=8.0
+
+# Phase 1: ingestion
+requests>=2.31
+beautifulsoup4>=4.12
+trendspy>=0.1  # pytrends was archived April 2025; this is the maintained successor
+praw>=7.7

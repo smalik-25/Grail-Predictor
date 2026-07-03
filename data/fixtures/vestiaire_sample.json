@@ -1,0 +1,50 @@
+[
+  {
+    "id": 55210001,
+    "name": "Leather high trainers",
+    "brand": {"name": "Rick Owens"},
+    "price": {"cents": 98000, "currency": "EUR"},
+    "size": {"label": "43 IT"},
+    "condition": {"label": "Very good condition"},
+    "link": "/men-shoes/rick-owens/leather-high-trainers-55210001.shtml",
+    "pictures": ["https://images.vestiairecollective.com/produit/55210001-1_2.jpg"],
+    "seller": {"nickname": "parisarchives"},
+    "created_at": "2026-05-15"
+  },
+  {
+    "id": 55210002,
+    "name": "Wool cardigan",
+    "brand": {"name": "Number (N)ine"},
+    "price": {"cents": 265000, "currency": "EUR"},
+    "size": {"label": "M International"},
+    "condition": {"label": "Good condition"},
+    "link": "/men-clothing/number-n-ine/wool-cardigan-55210002.shtml",
+    "pictures": ["https://images.vestiairecollective.com/produit/55210002-1_2.jpg"],
+    "seller": {"nickname": "archivedealer_jp"},
+    "created_at": "2026-04-02"
+  },
+  {
+    "id": 55210003,
+    "name": "Jacket",
+    "brand": {"name": "Balenciaga"},
+    "price": {"cents": 145000, "currency": "EUR"},
+    "size": {"label": "48 FR"},
+    "condition": {"label": "Never worn"},
+    "link": "/men-clothing/balenciaga/jacket-55210003.shtml",
+    "pictures": ["https://images.vestiairecollective.com/produit/55210003-1_2.jpg"],
+    "seller": {"nickname": "milanocloset"},
+    "created_at": "2026-06-10"
+  },
+  {
+    "id": 55210004,
+    "name": "Cloth trainers",
+    "brand": {"name": "Maison Martin Margiela"},
+    "price": {"cents": 21000, "currency": "EUR"},
+    "size": {"label": "42 EU"},
+    "condition": {"label": "Fair condition"},
+    "link": "/men-shoes/maison-martin-margiela/cloth-trainers-55210004.shtml",
+    "pictures": ["https://images.vestiairecollective.com/produit/55210004-1_2.jpg"],
+    "seller": {"nickname": "brusselsvault"},
+    "created_at": "2026-06-22"
+  }
+]

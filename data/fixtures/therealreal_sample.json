@@ -1,0 +1,50 @@
+[
+  {
+    "sku": "RIC298431",
+    "name": "Rick Owens Geobasket Leather Sneakers",
+    "designer": "Rick Owens",
+    "price": "$995.00",
+    "currency": "USD",
+    "size": "IT 43",
+    "condition": "Very Good",
+    "url": "https://www.therealreal.com/products/men/shoes/sneakers/rick-owens-geobasket-leather-sneakers-ric298431",
+    "image": "https://media.therealreal.com/ric298431_1.jpg",
+    "first_listed": "2026-04-20"
+  },
+  {
+    "sku": "MAI512907",
+    "name": "Maison Margiela Replica Suede Sneakers",
+    "designer": "Maison Margiela",
+    "price": "$225.00",
+    "currency": "USD",
+    "size": "IT 42",
+    "condition": "Good",
+    "url": "https://www.therealreal.com/products/men/shoes/sneakers/maison-margiela-replica-suede-sneakers-mai512907",
+    "image": "https://media.therealreal.com/mai512907_1.jpg",
+    "first_listed": "2026-05-11"
+  },
+  {
+    "sku": "BAL771203",
+    "name": "Balenciaga Wool Bomber Jacket",
+    "designer": "Balenciaga",
+    "price": "$1,350.00",
+    "currency": "USD",
+    "size": "IT 48",
+    "condition": "Pristine",
+    "url": "https://www.therealreal.com/products/men/outerwear/balenciaga-wool-bomber-jacket-bal771203",
+    "image": "https://media.therealreal.com/bal771203_1.jpg",
+    "first_listed": "2026-06-02"
+  },
+  {
+    "sku": "UND430988",
+    "name": "Undercover Printed Cotton Jacket",
+    "designer": "Undercover",
+    "price": "$780.00",
+    "currency": "USD",
+    "size": "JP 3",
+    "condition": "Very Good",
+    "url": "https://www.therealreal.com/products/men/outerwear/undercover-printed-cotton-jacket-und430988",
+    "image": "https://media.therealreal.com/und430988_1.jpg",
+    "first_listed": "2026-06-19"
+  }
+]

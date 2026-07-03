@@ -1,0 +1,62 @@
+[
+  {
+    "source": "ssense",
+    "brand": "Rick Owens",
+    "product_name": "Black Geobasket Sneakers",
+    "price": 1190.0,
+    "currency": "USD",
+    "url": "https://www.ssense.com/en-us/men/product/rick-owens/black-geobasket-sneakers/123001",
+    "in_stock": true,
+    "date": "2026-06-28"
+  },
+  {
+    "source": "ssense",
+    "brand": "Maison Margiela",
+    "product_name": "White & Grey Replica Sneakers",
+    "price": 570.0,
+    "currency": "USD",
+    "url": "https://www.ssense.com/en-us/men/product/maison-margiela/replica-sneakers/123002",
+    "in_stock": true,
+    "date": "2026-06-28"
+  },
+  {
+    "source": "ssense",
+    "brand": "Undercover",
+    "product_name": "Black Printed Hoodie",
+    "price": 480.0,
+    "currency": "USD",
+    "url": "https://www.ssense.com/en-us/men/product/undercover/black-printed-hoodie/123003",
+    "in_stock": false,
+    "date": "2026-06-28"
+  },
+  {
+    "source": "dsm",
+    "brand": "Rick Owens",
+    "product_name": "Geobasket Sneaker Black/Milk",
+    "price": 1215.0,
+    "currency": "USD",
+    "url": "https://shop-us.doverstreetmarket.com/products/rick-owens-geobasket-black-milk",
+    "in_stock": true,
+    "date": "2026-06-28"
+  },
+  {
+    "source": "dsm",
+    "brand": "Undercover",
+    "product_name": "UC Graphic Knit Cardigan",
+    "price": 890.0,
+    "currency": "USD",
+    "url": "https://shop-us.doverstreetmarket.com/products/undercover-graphic-knit-cardigan",
+    "in_stock": true,
+    "date": "2026-06-28"
+  },
+  {
+    "source": "saks",
+    "brand": "Balenciaga",
+    "product_name": "Oversized Bomber Jacket",
+    "price": 2950.0,
+    "currency": "USD",
+    "url": "https://www.saksfifthavenue.com/product/balenciaga-oversized-bomber-0400012345678",
+    "in_stock": true,
+    "date": "2026-06-28"
+  }
+]

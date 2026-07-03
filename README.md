@@ -4,8 +4,8 @@ Predicting which luxury and avant-garde fashion pieces are about to become grail
 
 ## Progress
 
-- [ ] Phase 0: Scaffold
-- [ ] Phase 1: Ingestion (Grailed and eBay first, then the rest)
+- [x] Phase 0: Scaffold
+- [x] Phase 1: Ingestion (Grailed and eBay first, then the rest)
 - [ ] Phase 2a: Entity resolution, text
 - [ ] Phase 2b: Entity resolution, image (only if the 2a numbers demand it)
 - [ ] Phase 3: Schema and warehouse
@@ -53,4 +53,10 @@ pip install -r requirements.txt
 make test
 ```
 
-Everything runs on fixtures by default. Credentials in `.env` (see `.env.example`) switch individual sources to live mode.
+Everything runs on fixtures by default. To land raw data from all built sources:
+
+```
+python -m ingestion.run_ingestion
+```
+
+Live mode requires `INGEST_LIVE=1` plus per-source credentials in `.env` (see `.env.example`); without both, every source stays on fixtures.
