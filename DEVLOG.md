@@ -119,3 +119,29 @@ The dev container has no Docker and no root, so the live end-to-end load couldn'
 **What's next**
 
 Phase 4, the dbt layer: staging, the spread and velocity intermediates, and the two marts the dashboard and model read.
+
+---
+
+## dbt transformation layer
+
+**What I built**
+
+Fourteen models in three layers, thirty schema tests, one seed. Staging: one typed view per warehouse table, with prices normalized to USD through an fx_rates seed. Intermediate: sale events, a per-item daily resale series, the brand retail baseline, the retail-vs-resale spread, price velocity normalized to a 30-day pace, and listing liquidity (counts plus sold-through). Marts: mart_item_price_history (the per-item time series with 3-sale rolling average and deltas, via window functions) and mart_item_current_state (one row per item; the dashboard and the model's inference path read this and nothing else). Every model opens with a one-line purpose comment. Tests: unique and not_null on keys, relationships from listings and sales back to stg_items, accepted_values on platform_type and spread_basis.
+
+**Why these decisions**
+
+The spread signal has a linkage problem I refused to paper over. Retail rows aren't resolved to canonical items yet (that's its own entity resolution, recorded in the Phase 3 notes), so an item-level retail-vs-resale spread isn't computable honestly. Instead the spread uses a brand-level retail median as the reference, and every spread row carries spread_basis = 'brand_proxy' saying so. When item-level linkage lands, those rows flip to 'item' and no consumer changes. The alternative was silently joining retail to items on brand and pretending it was item-level. The column exists so nobody, including future me, mistakes the proxy for the real thing.
+
+FX rates are a static seed (four currencies, one rate each), not a dated rate table. At fixture scale, dated FX would be precision theater: the fixture prices themselves are hand-written. The seed's job is making the currency normalization path real so the models and tests exercise it; swapping the seed for a dated reference table later changes one ref and zero model logic.
+
+The daily resale series (int_item_daily_resale) exists so every window function downstream runs on a unique (item, day) grain. Without it, two same-day sales on different platforms would double rows through every join and the mart's uniqueness test would be a lie waiting to fail.
+
+profiles.yml is checked in, which is normally wrong. Here the warehouse is a disposable local Postgres holding fixture data, credentials grail/grail from docker-compose. Nothing to protect, and every cloner gets dbt build working with zero setup.
+
+**What I learned or got stuck on**
+
+The sandbox has no Postgres, so verification split again: dbt parse (structure, refs, jinja) ran clean in-session, and dbt build with its 30 tests runs on my machine against the docker warehouse. Also dbt 1.12 deprecation-warns the yml test shorthand; noted, ignoring until the syntax actually breaks.
+
+**What's next**
+
+Phase 5, labeling. Short on code, long on thinking: what "became a grail" means as a number, and the as-of cutoff that keeps every feature honest.

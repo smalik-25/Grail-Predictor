@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: mart_item_price_history
+    columns:
+      - name: price_history_key
+        tests: [unique, not_null]
+      - name: item_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_items')
+              field: item_id
+      - name: spread_basis
+        tests:
+          - accepted_values:
+              values: ['brand_proxy', 'item']
+  - name: mart_item_current_state
+    columns:
+      - name: item_id
+        tests: [unique, not_null]
+      - name: n_listings
+        tests: [not_null]
+      - name: spread_basis
+        tests:
+          - accepted_values:
+              values: ['brand_proxy', 'item']

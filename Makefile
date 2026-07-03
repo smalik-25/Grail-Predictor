@@ -1,6 +1,6 @@
 # Finalized in Phase 9. Targets appear as their phases are built.
 
-.PHONY: test ingest resolve db-up load
+.PHONY: test ingest resolve db-up load transform
 
 test:
 	pytest
@@ -16,3 +16,6 @@ db-up:
 
 load:
 	python -m db.load
+
+transform:
+	cd dbt_project && dbt build --profiles-dir .

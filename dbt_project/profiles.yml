@@ -1,0 +1,15 @@
+# Local profile, checked in on purpose: the warehouse is a disposable local
+# Postgres with fixture data, there are no secrets to protect here.
+# Run with: dbt build --profiles-dir .
+grail:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('PGHOST', 'localhost') }}"
+      port: 5432
+      user: grail
+      password: grail
+      dbname: grail
+      schema: analytics
+      threads: 4

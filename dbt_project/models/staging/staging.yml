@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: stg_items
+    columns:
+      - name: item_id
+        tests: [unique, not_null]
+  - name: stg_platforms
+    columns:
+      - name: platform_name
+        tests: [unique, not_null]
+      - name: platform_type
+        tests:
+          - accepted_values:
+              values: ['resale', 'retail', 'search', 'social']
+  - name: stg_listings
+    columns:
+      - name: listing_id
+        tests: [unique, not_null]
+      - name: item_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_items')
+              field: item_id
+  - name: stg_retail_prices
+    columns:
+      - name: retail_price_id
+        tests: [unique, not_null]
+  - name: stg_search_interest
+    columns:
+      - name: search_interest_id
+        tests: [unique, not_null]
+  - name: stg_social_mentions
+    columns:
+      - name: post_id
+        tests: [unique, not_null]

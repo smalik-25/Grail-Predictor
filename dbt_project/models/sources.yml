@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: grail
+    description: The hand-written star schema loaded by db/load.py.
+    schema: public
+    tables:
+      - name: dim_items
+      - name: dim_platforms
+      - name: fact_listings
+      - name: fact_retail_prices
+      - name: fact_search_interest
+      - name: fact_social_mentions

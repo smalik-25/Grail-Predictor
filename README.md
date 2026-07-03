@@ -8,7 +8,7 @@ Predicting which luxury and avant-garde fashion pieces are about to become grail
 - [x] Phase 1: Ingestion (Grailed and eBay first, then the rest)
 - [x] Phase 2a: Entity resolution, text
 - [ ] Phase 2b: Entity resolution, image (only if the 2a numbers demand it)
-- [ ] Phase 3: Schema and warehouse
+- [x] Phase 3: Schema and warehouse
 - [ ] Phase 4: dbt transformation layer
 - [ ] Phase 5: Labeling the target
 - [ ] Phase 6: Feature engineering

@@ -1,0 +1,20 @@
+name: grail_predictor
+version: "0.1.0"
+profile: grail
+model-paths: ["models"]
+seed-paths: ["seeds"]
+
+models:
+  grail_predictor:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+
+seeds:
+  grail_predictor:
+    fx_rates:
+      +column_types:
+        usd_per_unit: numeric(10, 6)
