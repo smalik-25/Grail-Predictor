@@ -1,0 +1,8 @@
+{
+  "_comment": "Footwear normalizes to EU sizing; clothing to letter buckets. Brand-aware quirks live in the code that reads this, not in more nesting here.",
+  "footwear_us_to_eu": {"7": 40, "7.5": 40.5, "8": 41, "8.5": 41.5, "9": 42, "9.5": 42.5, "10": 43, "10.5": 43.5, "11": 44, "11.5": 44.5, "12": 45, "13": 46},
+  "footwear_uk_to_eu": {"6": 40, "7": 41, "8": 42, "9": 43, "10": 44, "11": 45, "12": 46},
+  "footwear_cm_to_eu": {"25.5": 40, "26": 41, "26.5": 42, "27": 42.5, "27.5": 43, "28": 44, "28.5": 45, "29": 46},
+  "clothing_eu_to_letter": {"44": "XS", "46": "S", "48": "M", "50": "L", "52": "XL", "54": "XXL"},
+  "clothing_jp_to_letter": {"0": "XS", "1": "S", "2": "M", "3": "L", "4": "XL", "5": "XXL"}
+}

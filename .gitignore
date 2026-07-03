@@ -13,9 +13,10 @@ __pycache__/
 build/
 dist/
 
-# Data: raw landed data never enters git
+# Data: raw landed data never enters git, neither do derived pipeline outputs
 data/raw/*
 !data/raw/.gitkeep
+data/processed/
 
 # Pipeline outputs
 mlruns/
