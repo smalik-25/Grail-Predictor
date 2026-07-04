@@ -1,0 +1,11 @@
+{
+  "_comment": "The curated list of figures who actually move this market. Detection runs ONLY against this list: a short high-precision vocabulary beats NER over everything, keeps false positives down, and keeps the scope defensible. Seeded with the case-study names; grows by hand, which is where domain knowledge enters as data.",
+  "Playboi Carti": ["playboi carti", "carti"],
+  "Kanye West": ["kanye west", "kanye", "ye west"],
+  "A$AP Rocky": ["asap rocky", "a$ap rocky"],
+  "Travis Scott": ["travis scott", "la flame"],
+  "Frank Ocean": ["frank ocean"],
+  "Michele Lamy": ["michele lamy", "michèle lamy"],
+  "Bella Hadid": ["bella hadid"],
+  "Jerry Lorenzo": ["jerry lorenzo"]
+}

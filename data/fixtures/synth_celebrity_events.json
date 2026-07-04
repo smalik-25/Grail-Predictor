@@ -1,0 +1,173 @@
+[
+ {
+  "family_id": "fam-synth-0019",
+  "brand": "Undercover",
+  "model_line": "synth-line-19",
+  "figure": "Travis Scott",
+  "event_date": "2024-12-25",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0020",
+  "brand": "Enfant Riches Deprimes",
+  "model_line": "synth-line-20",
+  "figure": "Travis Scott",
+  "event_date": "2025-01-31",
+  "source": "synth",
+  "confidence": 0.6
+ },
+ {
+  "family_id": "fam-synth-0038",
+  "brand": "Number (N)ine",
+  "model_line": "synth-line-38",
+  "figure": "Frank Ocean",
+  "event_date": "2025-04-08",
+  "source": "synth",
+  "confidence": 0.6
+ },
+ {
+  "family_id": "fam-synth-0009",
+  "brand": "Undercover",
+  "model_line": "synth-line-09",
+  "figure": "Jerry Lorenzo",
+  "event_date": "2025-05-03",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0045",
+  "brand": "Number (N)ine",
+  "model_line": "synth-line-45",
+  "figure": "A$AP Rocky",
+  "event_date": "2025-05-03",
+  "source": "synth",
+  "confidence": 0.6
+ },
+ {
+  "family_id": "fam-synth-0041",
+  "brand": "Undercover",
+  "model_line": "synth-line-41",
+  "figure": "Travis Scott",
+  "event_date": "2025-05-04",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0015",
+  "brand": "Enfant Riches Deprimes",
+  "model_line": "synth-line-15",
+  "figure": "Travis Scott",
+  "event_date": "2025-05-26",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0031",
+  "brand": "Undercover",
+  "model_line": "synth-line-31",
+  "figure": "Jerry Lorenzo",
+  "event_date": "2025-05-29",
+  "source": "synth",
+  "confidence": 0.6
+ },
+ {
+  "family_id": "fam-synth-0015",
+  "brand": "Enfant Riches Deprimes",
+  "model_line": "synth-line-15",
+  "figure": "Travis Scott",
+  "event_date": "2025-06-25",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0022",
+  "brand": "Balenciaga",
+  "model_line": "synth-line-22",
+  "figure": "Kanye West",
+  "event_date": "2025-07-06",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0015",
+  "brand": "Enfant Riches Deprimes",
+  "model_line": "synth-line-15",
+  "figure": "Travis Scott",
+  "event_date": "2025-07-09",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0022",
+  "brand": "Balenciaga",
+  "model_line": "synth-line-22",
+  "figure": "Bella Hadid",
+  "event_date": "2025-07-24",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0022",
+  "brand": "Balenciaga",
+  "model_line": "synth-line-22",
+  "figure": "Kanye West",
+  "event_date": "2025-07-27",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0028",
+  "brand": "Maison Margiela",
+  "model_line": "synth-line-28",
+  "figure": "Frank Ocean",
+  "event_date": "2025-07-30",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0005",
+  "brand": "Balenciaga",
+  "model_line": "synth-line-05",
+  "figure": "Kanye West",
+  "event_date": "2025-08-01",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0036",
+  "brand": "Rick Owens",
+  "model_line": "synth-line-36",
+  "figure": "Michele Lamy",
+  "event_date": "2025-08-15",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0028",
+  "brand": "Maison Margiela",
+  "model_line": "synth-line-28",
+  "figure": "Frank Ocean",
+  "event_date": "2025-08-16",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0036",
+  "brand": "Rick Owens",
+  "model_line": "synth-line-36",
+  "figure": "Michele Lamy",
+  "event_date": "2025-08-17",
+  "source": "synth",
+  "confidence": 0.9
+ },
+ {
+  "family_id": "fam-synth-0028",
+  "brand": "Maison Margiela",
+  "model_line": "synth-line-28",
+  "figure": "Kanye West",
+  "event_date": "2025-08-21",
+  "source": "synth",
+  "confidence": 0.9
+ }
+]

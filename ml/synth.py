@@ -47,11 +47,24 @@ FIXTURE_DIR = Path(__file__).resolve().parent.parent / "data" / "fixtures"
 FAMILIES_FIXTURE = FIXTURE_DIR / "synth_families.json"
 SALES_FIXTURE = FIXTURE_DIR / "synth_family_sales.json"
 ATTENTION_FIXTURE = FIXTURE_DIR / "synth_family_attention.json"
+CELEBRITY_FIXTURE = FIXTURE_DIR / "synth_celebrity_events.json"
 
 BRANDS = (
     "Rick Owens", "Balenciaga", "Maison Margiela",
     "Enfant Riches Deprimes", "Number (N)ine", "Undercover",
 )
+
+# Which figures plausibly co-sign which brand. Every name is in
+# data/reference/celebrity_figures.json, so the synth events speak the same
+# vocabulary the detector does even though the two never feed each other.
+BRAND_FIGURES = {
+    "Rick Owens": ("Playboi Carti", "Michele Lamy", "A$AP Rocky"),
+    "Balenciaga": ("Kanye West", "Bella Hadid"),
+    "Maison Margiela": ("Frank Ocean", "Kanye West"),
+    "Enfant Riches Deprimes": ("Travis Scott", "A$AP Rocky"),
+    "Number (N)ine": ("Frank Ocean", "A$AP Rocky"),
+    "Undercover": ("Travis Scott", "Jerry Lorenzo"),
+}
 CATEGORIES = ("footwear", "outerwear", "knitwear", "tops")
 ERAS = ("archive-2003-2009", "archive-2010-2015", "recent-2016-plus")
 REGIME_WEIGHTS = (("flat", 0.5), ("drift", 0.3), ("grail", 0.2))
@@ -65,6 +78,7 @@ class SynthConfig:
     start: datetime.date = datetime.date(2024, 7, 1)
     end: datetime.date = datetime.date(2026, 6, 30)
     seed: int = 11
+    celebrity_seed: int = 1109  # own stream; must not perturb seed=11
     min_gap_days: int = 4
     max_gap_days: int = 10
     noise: float = 0.08
@@ -199,14 +213,62 @@ def _attention_lift(
     return 1.0 + 3.0 * progress
 
 
+def generate_celebrity_events(
+    families: list[dict], config: SynthConfig = SynthConfig()
+) -> list[dict]:
+    """Synthetic celebrity events at the family grain, feeding the celebrity
+    features. This uses its OWN rng (celebrity_seed), drawn only here after
+    the main generation, so it never touches the seed=11 stream that sales,
+    attention, and families are pinned to.
+
+    Grail families get 1 to 3 events dated 5 to 55 days before the price
+    inflection: the co-sign leads the move, the same shape attention takes.
+    A minority of flat and drift families get a single red-herring event so
+    the model cannot learn the lazy rule 'any event means buy'."""
+    crng = random.Random(config.celebrity_seed)
+    span_days = (config.end - config.start).days
+    events: list[dict] = []
+    for family in families:
+        figures = BRAND_FIGURES.get(family["brand"], ("Bella Hadid",))
+        if family["regime"] == "grail" and family["inflection_date"]:
+            inflection = datetime.date.fromisoformat(family["inflection_date"])
+            for _ in range(crng.randint(1, 3)):
+                date = inflection - datetime.timedelta(days=crng.randint(5, 55))
+                events.append(_celebrity_event(crng, family, figures, date, 0.9))
+        elif crng.random() < 0.15:
+            date = config.start + datetime.timedelta(days=crng.randint(0, span_days))
+            events.append(_celebrity_event(crng, family, figures, date, 0.6))
+    events.sort(key=lambda event: (event["event_date"], event["family_id"]))
+    return events
+
+
+def _celebrity_event(
+    crng: random.Random, family: dict, figures: tuple[str, ...],
+    date: datetime.date, confidence: float,
+) -> dict:
+    return {
+        "family_id": family["family_id"],
+        "brand": family["brand"],
+        "model_line": family["model_line"],
+        "figure": crng.choice(figures),
+        "event_date": date.isoformat(),
+        "source": "synth",
+        "confidence": confidence,
+    }
+
+
 def write_fixture(config: SynthConfig = SynthConfig()) -> tuple[Path, Path, Path]:
     families, sales, attention = generate(config)
     FAMILIES_FIXTURE.write_text(json.dumps(families, indent=1))
     SALES_FIXTURE.write_text(json.dumps(sales))
     ATTENTION_FIXTURE.write_text(json.dumps(attention))
+    # celebrity events land after the three pinned files, from their own rng,
+    # so regenerating them leaves families/sales/attention byte-identical.
+    events = generate_celebrity_events(families, config)
+    CELEBRITY_FIXTURE.write_text(json.dumps(events, indent=1))
     logger.info(
-        "synth: wrote %d families, %d sales, %d attention weeks",
-        len(families), len(sales), len(attention),
+        "synth: wrote %d families, %d sales, %d attention weeks, %d celebrity events",
+        len(families), len(sales), len(attention), len(events),
     )
     return FAMILIES_FIXTURE, SALES_FIXTURE, ATTENTION_FIXTURE
 

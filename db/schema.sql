@@ -135,3 +135,28 @@ CREATE TABLE IF NOT EXISTS fact_social_mentions (
 
 CREATE INDEX IF NOT EXISTS idx_fact_social_created ON fact_social_mentions (created_date);
 CREATE INDEX IF NOT EXISTS idx_fact_social_subreddit ON fact_social_mentions (subreddit, created_date);
+
+-- Detected "named figure co-mentioned with brand/piece" events. Grain: one
+-- row per detected co-mention. family_id is FK-ISH on purpose and NOT a real
+-- foreign key: the detector can name a real-brand family the catalog has not
+-- landed yet, and refusing that row would drop signal the whole layer exists
+-- to catch. The natural key treats NULL model_line/event_date as distinct
+-- (Postgres UNIQUE semantics), so a brand-wide event can re-insert on an exact
+-- re-detect; acceptable because detector output is regenerated wholesale, not
+-- appended, the same tradeoff fact_listings already takes on NULL url.
+CREATE TABLE IF NOT EXISTS fact_celebrity_events (
+    celebrity_event_id BIGSERIAL PRIMARY KEY,
+    family_id          TEXT,
+    brand              TEXT NOT NULL,
+    model_line         TEXT,
+    figure             TEXT NOT NULL,
+    event_date         DATE,
+    source             TEXT,
+    confidence         NUMERIC(3, 2) CHECK (confidence IS NULL OR confidence BETWEEN 0 AND 1),
+    evidence           TEXT,
+    CONSTRAINT uq_celebrity_natural_key UNIQUE (figure, brand, model_line, event_date, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_fact_celebrity_event_date ON fact_celebrity_events (event_date);
+CREATE INDEX IF NOT EXISTS idx_fact_celebrity_brand ON fact_celebrity_events (brand);
+CREATE INDEX IF NOT EXISTS idx_fact_celebrity_family ON fact_celebrity_events (family_id);

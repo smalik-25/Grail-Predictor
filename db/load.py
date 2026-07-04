@@ -212,6 +212,27 @@ def fact_social_rows(records: Iterable[dict[str, Any]]) -> list[tuple]:
     ]
 
 
+def fact_celebrity_rows(records: Iterable[dict[str, Any]]) -> list[tuple]:
+    """(family_id, brand, model_line, figure, event_date, source, confidence, evidence).
+
+    family_id and model_line stay None when the text only pinned a brand;
+    event_date goes through parse_date like every other fact date.
+    """
+    return [
+        (
+            record.get("family_id"),
+            record["brand"],
+            record.get("model_line"),
+            record["figure"],
+            parse_date(record.get("event_date")),
+            record.get("source"),
+            record.get("confidence"),
+            record.get("evidence"),
+        )
+        for record in records
+    ]
+
+
 # ---------------------------------------------------------------------------
 # I/O: reading pipeline outputs, shipping rows to Postgres.
 # ---------------------------------------------------------------------------
@@ -233,6 +254,19 @@ def read_catalog() -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dic
     families = scrub_nan(pd.read_parquet(PROCESSED_DIR / "catalog_families.parquet").to_dict("records"))
     listings = scrub_nan(pd.read_parquet(PROCESSED_DIR / "catalog_listings.parquet").to_dict("records"))
     return items, families, listings
+
+
+def read_celebrity_events() -> list[dict[str, Any]]:
+    """Detector output, else empty (and say so). The detector is a separate
+    stage (make celebrity); a load before it has run simply carries no events
+    rather than failing, the same contract latest_raw takes for raw sources."""
+    import pandas as pd
+
+    path = PROCESSED_DIR / "celebrity_events.parquet"
+    if not path.exists():
+        logger.warning("no %s; loading no celebrity events (run 'make celebrity' first)", path)
+        return []
+    return scrub_nan(pd.read_parquet(path).to_dict("records"))
 
 
 def load_all(database_url: str | None = None) -> dict[str, int]:
@@ -310,8 +344,16 @@ def load_all(database_url: str | None = None) -> dict[str, int]:
                 "ON CONFLICT ON CONSTRAINT uq_social_natural_key DO NOTHING",
                 fact_social_rows(latest_raw("social")),
             )
+            execute_values(
+                cursor,
+                "INSERT INTO fact_celebrity_events (family_id, brand, model_line, figure, "
+                "event_date, source, confidence, evidence) VALUES %s "
+                "ON CONFLICT ON CONSTRAINT uq_celebrity_natural_key DO NOTHING",
+                fact_celebrity_rows(read_celebrity_events()),
+            )
             for table in ("dim_platforms", "dim_items", "dim_style_families", "fact_listings",
-                          "fact_retail_prices", "fact_search_interest", "fact_social_mentions"):
+                          "fact_retail_prices", "fact_search_interest", "fact_social_mentions",
+                          "fact_celebrity_events"):
                 cursor.execute(f"SELECT count(*) FROM {table}")  # noqa: S608 - fixed table list
                 counts[table] = cursor.fetchone()[0]
     for table, count in counts.items():

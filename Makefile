@@ -1,6 +1,6 @@
 # Finalized in Phase 9. Targets appear as their phases are built.
 
-.PHONY: test ingest resolve db-up load transform label features
+.PHONY: test ingest resolve db-up load transform label features celebrity
 
 test:
 	pytest
@@ -22,6 +22,9 @@ transform:
 
 label:
 	python -m ml.label --source synth
+
+celebrity:
+	python -m ml.celebrity --source social-fixture
 
 features:
 	python -m features.build_features --source synth

@@ -271,3 +271,35 @@ Stale Parquet partitions bit once: pandas appends files per partition directory,
 **What's next**
 
 Phase 6b, the celebrity/editorial detector: fact_celebrity_events, the curated figure list, and the features flipping from stubs to signal. Then the retargeted train and evaluate.
+
+---
+
+## Celebrity and editorial signal, wired end to end
+
+**What I built**
+
+I came in to start the training phase and found the celebrity phase was not actually finished, only half-built and never committed. The detector module and the figure list were there and the unit tests on explicit text passed, but nothing connected: there was no fact_celebrity_events table in the schema, no loader path for it, the social fixture the detector reads named no figures so it found nothing, and the feature builder still emitted celebrity zeros while a stale features Parquet on disk carried real celebrity values that no committed code could reproduce. So I finished it. New schema table, loader row builder and insert, two planted Reddit posts, the as-of event feature in Spark, a seeded synthetic event generator, a Makefile target, the doc, and a leak canary. 141 tests pass with the database up, one still skips without it.
+
+The shape that matters: two event sources that stay separate on purpose. The detector reads real text, real brands, and lands events in fact_celebrity_events, which is the mechanic and the warehouse story. The synthetic events (synth_celebrity_events.json, generated at the family grain) are what the feature pipeline actually reads, because the model trains on synth families and the detector's real-brand events do not belong to them. On the fixture the detector finds two events, Carti in Rick Owens Geobaskets and Frank Ocean in the 2013 Margiela Futures, and the load holds them at two rows across repeated reloads. On the feature side, positive rows average 1.23 events in the trailing 90 days against 0.01 for negatives, 33 of 863 rows carry a nonzero count, and every row's audit stamp stays at or before its prediction moment.
+
+**Why these decisions**
+
+The two sources do not feed each other, and that is the honest call, not a shortcut. Bridging them would mean mapping a real Rick Owens co-sign onto some fam-synth-0003, which is a fabricated join dressed up as signal. The detector proves detection and the load; the synthetic events give the model something to weigh. Each does one job it can actually do.
+
+family_id on the celebrity table is FK-ish and deliberately not a foreign key. The detector can name a family the catalog has not landed yet, and a hard constraint would drop that row and the signal with it. The cost is no referential integrity on that one column, which I take, because the whole reason the layer exists is to catch attention before the catalog is complete.
+
+compute_features grew an optional events argument rather than a required one. With no events frame it reproduces the old stub exactly, count zero and recency null, so the callers that pass four frames and the existing leak canary stay bit-identical. A branch in the function is a small price for not changing the contract of everything that already reads features.
+
+The leak stamp is the subtle part. The event date that folds into max_source_date_used is the max over the same windowed, at-or-before-cutoff frame the count comes from, so a post-cutoff event can never reach the stamp even as it is correctly excluded from the count. I did not want to trust that by eye, so there is now a celebrity leak canary that adds a post-cutoff event and asserts the columns and the stamp are bit-for-bit unchanged, the same guarantee the sales and attention canary already carries.
+
+Synthetic event generation draws from its own seed, after the main generation, touching nothing in the pinned seed=11 stream. The proof is mechanical: regenerate, and git diff on families, sales, and attention is empty. That let me add a whole new fixture without invalidating a single downstream number the other docs and entries already cite.
+
+**What I learned or got stuck on**
+
+The status table said this phase was done and 140 tests passed. Three tests were red, there was no celebrity commit in the log, and the table's own schema table did not exist. The tests and the git log were right and the summary was wrong, which is the correct order of trust.
+
+The bug that actually cost time: a brand-wide event carries a null family_id, and a null in a pandas column that also holds real ids comes across as the string "NaN", not a null. So isNull was false, the brand-wide branch missed, and the count came back zero. It is the same None-to-NaN hazard scrub_nan exists to catch on the load side, and the full synthetic run hid it completely because every synthetic event carries a real family_id. The one test that fed a null-family, brand-wide event is what surfaced it. The fix maps "NaN" back to a real null in the event select, and it is a reminder that the leak controls and the edge-case tests earn their keep on exactly the paths the happy-path data never exercises.
+
+**What's next**
+
+Phase 7 for real: retarget train and evaluate to the peer-relative target on the family-grain features, now that the celebrity columns are real and reproducible from committed code, with the celebrity importance read as a mechanics check on the planted signal.

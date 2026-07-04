@@ -14,7 +14,7 @@ A decision tool for small and mid-size resellers of archive and avant-garde fash
 - [x] Phase 4b: Marts regrained to family
 - [x] Phase 5: Labeling, peer-relative uplift at family grain
 - [x] Phase 6: Feature engineering, peer-set and colorway features
-- [ ] Phase 6b: Celebrity/editorial signal detection
+- [x] Phase 6b: Celebrity/editorial signal detection
 - [ ] Phase 7: Train and evaluate
 - [ ] Phase 8: Decision backtest
 - [ ] Phase 8b: Pricing and hold-or-move layer

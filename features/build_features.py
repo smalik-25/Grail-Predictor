@@ -20,10 +20,13 @@ Feature groups:
   answer, and the coarser group keeps the z-scores dense.
 - statics: brand, category, collab_flag, archive_flag (era string starts
   with 'archive', or season-year fallback for real catalog eras)
-- celebrity_signal stubs: celebrity_event_count_90d and
-  celebrity_recency_days, wired now, landing as zero/null until the Phase
-  6b detector fills fact_celebrity_events. Columns exist so the model and
-  every downstream contract never changes shape when 6b lands.
+- celebrity_signal: celebrity_event_count_90d and celebrity_recency_days
+  from the events frame, under the same as-of contract as every other
+  source. A matching event (same family, or brand-wide on the family's
+  brand) dated in the trailing 90 days lifts the count; recency is days
+  since the most recent one. No events frame reproduces the old stub
+  (count 0, recency null) so the shape never changes when the source is
+  absent.
 
 Output: Parquet partitioned by prediction year, matching how the time
 split reads it. One Spark action: collect once, validate, land via
@@ -82,10 +85,69 @@ def is_archive_era(era: str | None, prediction_year: int) -> bool:
     return False
 
 
-def compute_features(spark, labels_df, sales_df, attention_df, families_df):
+def _with_celebrity_signal(base, labels, families, events_df, F):
+    """Attach celebrity_event_count_90d, celebrity_recency_days, and the
+    windowed max_event_date_used the audit stamp folds in.
+
+    events_df None keeps the stub (count 0 long, recency null, event max null)
+    so the 5-arg path and the leak canary stay bit-identical. Present, an
+    event matches a row when it names the row's family OR is brand-wide on the
+    row's brand, and it is dated in (T-90, T]. The window filter and the max
+    are taken on ONE frame so a post-cutoff event can never reach the stamp."""
+    if events_df is None:
+        return (
+            base
+            .withColumn("celebrity_event_count_90d", F.lit(0).cast("long"))
+            .withColumn("celebrity_recency_days", F.lit(None).cast("double"))
+            .withColumn("max_event_date_used", F.lit(None).cast("date"))
+        )
+
+    # A pandas frame turns a None family_id into the string "NaN" when the
+    # column also holds real ids, and that is not null, so the brand-wide
+    # branch below would silently miss. Map it back to a true null, the same
+    # None-to-NaN hazard scrub_nan handles on the load side.
+    events = events_df.select(
+        F.when(F.col("family_id").cast("string") == "NaN", F.lit(None))
+         .otherwise(F.col("family_id").cast("string")).alias("e_family_id"),
+        F.col("brand").alias("e_brand"),
+        F.col("event_date").cast("date").alias("e_event_date"),
+    )
+    label_brand = labels.join(families.select("family_id", "brand"), "family_id", "left")
+    matched = label_brand.join(
+        events,
+        (
+            ((F.col("e_family_id") == F.col("family_id"))
+             | (F.col("e_family_id").isNull() & (F.col("e_brand") == F.col("brand"))))
+            & (F.col("e_event_date") <= F.col("prediction_moment"))
+            & (F.col("e_event_date") > F.date_sub(F.col("prediction_moment"), 90))
+        ),
+        "inner",
+    )
+    celebrity = matched.groupBy("family_id", "prediction_moment").agg(
+        F.count(F.lit(1)).alias("celebrity_event_count_90d"),
+        F.max("e_event_date").alias("max_event_date_used"),
+    )
+    return (
+        base.join(celebrity, ["family_id", "prediction_moment"], "left")
+        .withColumn("celebrity_event_count_90d",
+                    F.coalesce(F.col("celebrity_event_count_90d"), F.lit(0)).cast("long"))
+        .withColumn("celebrity_recency_days",
+                    F.datediff(F.col("prediction_moment"),
+                               F.col("max_event_date_used")).cast("double"))
+    )
+
+
+def compute_features(spark, labels_df, sales_df, attention_df, families_df, events_df=None):
     """All aggregations conditional on source dates <= T; peer z-scores by
     (moment, brand, category) in a second Spark pass. DataFrames in, not
-    paths, so the leak canary can feed perturbed frames straight in."""
+    paths, so the leak canary can feed perturbed frames straight in.
+
+    events_df is optional: absent (None), the celebrity columns land as the
+    old stub (count 0, recency null) and the stamp ignores them, so the
+    5-arg callers and the leak canary stay bit-identical. Present, a matching
+    event within the trailing 90 days lifts the count and recency, and the
+    windowed event max folds into max_source_date_used like every other
+    source. Only events dated at or before T can match, by construction."""
     from pyspark.sql import functions as F
 
     labels = labels_df.select("family_id", "prediction_moment", "label")
@@ -159,10 +221,20 @@ def compute_features(spark, labels_df, sales_df, attention_df, families_df):
         .withColumn("prediction_year", F.year("prediction_moment"))
         .withColumn("archive_flag",
                     F.coalesce(archive_udf(F.col("era"), F.col("prediction_year")), F.lit(False)))
-        .withColumn("celebrity_event_count_90d", F.lit(0).cast("long"))  # Phase 6b fills these
-        .withColumn("celebrity_recency_days", F.lit(None).cast("double"))
-        .withColumn("max_source_date_used",
-                    F.greatest(F.col("max_sales_date_used"), F.col("max_attention_date_used")))
+    )
+
+    # ---- celebrity signal, as-of. A detected event matches a row when it
+    # names the same family OR is brand-wide on the row's brand, and it is
+    # dated inside the trailing 90 days ending at T. The window filter and
+    # the max share ONE frame on purpose: computing the event max only over
+    # matched (<= T) events keeps a post-cutoff event from leaking into the
+    # audit stamp. No events frame at all reproduces the stub exactly.
+    base = _with_celebrity_signal(base, labels, families, events_df, F)
+
+    base = base.withColumn(
+        "max_source_date_used",
+        F.greatest(F.col("max_sales_date_used"), F.col("max_attention_date_used"),
+                   F.col("max_event_date_used")),
     )
 
     # ---- peer-relative pass: z against same-(moment, category) peers.
@@ -242,13 +314,15 @@ def validate(frame) -> None:
 def load_synth_frames(spark):
     import pandas as pd
 
-    from ml.synth import ATTENTION_FIXTURE, FAMILIES_FIXTURE, SALES_FIXTURE
+    from ml.synth import (ATTENTION_FIXTURE, CELEBRITY_FIXTURE, FAMILIES_FIXTURE,
+                          SALES_FIXTURE)
 
     labels = spark.createDataFrame(pd.read_parquet(LABELS_PATH))
     sales = spark.createDataFrame(pd.DataFrame(json.loads(SALES_FIXTURE.read_text())))
     attention = spark.createDataFrame(pd.DataFrame(json.loads(ATTENTION_FIXTURE.read_text())))
     families = spark.createDataFrame(pd.DataFrame(json.loads(FAMILIES_FIXTURE.read_text())))
-    return labels, sales, attention, families
+    events = spark.createDataFrame(pd.DataFrame(json.loads(CELEBRITY_FIXTURE.read_text())))
+    return labels, sales, attention, families, events
 
 
 def main() -> None:
