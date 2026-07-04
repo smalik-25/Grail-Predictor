@@ -1,28 +1,34 @@
-"""PySpark feature engineering, every feature strictly as-of the prediction moment.
+"""PySpark feature engineering at the style-family grain, as-of or nothing.
 
-The contract, inherited from Phase 5: a labeled row carries its
-prediction_moment T, and no feature may read data after T. This module
-makes the contract auditable instead of aspirational: every feature row
-carries max_source_date_used, the latest source date that touched any of
-its aggregations, and the Pandera validation fails the whole build if any
-row's max_source_date_used exceeds its prediction_moment. The leak canary
-test perturbs post-T data and asserts features are bit-identical.
+The contract, inherited from labeling: a labeled row carries its
+prediction_moment T, and no feature may read data after T. Every feature
+row carries max_source_date_used, the latest source date that touched any
+of its aggregations, and Pandera fails the whole build if any row's value
+exceeds its prediction_moment. The leak canary test perturbs post-T data
+and asserts features are bit-identical.
 
-Features (all windows end at T, never after):
-- price_momentum_90d:   median price (T-45, T] over median (T-90, T-45], minus 1
-- sold_velocity_30d:    sales count in (T-90, T], scaled to a 30-day pace
-- spread_at_cutoff:     median price (T-90, T] over the item's retail price
-- spread_trend:         spread now vs spread over (T-180, T-90], minus 1
-- search_slope_60d:     mean interest (T-30, T] over mean (T-60, T-30], minus 1
-- search_accel:         search_slope_60d minus the same slope one window earlier
-- social_velocity_60d:  smoothed mention growth over the same windows
-- brand, category, collab_flag, archive_flag (season at least 5 years old at T)
+Feature groups:
+- own-history (windows ending at T, never after): price momentum, sold
+  velocity, retail spread and its trend, search slope and acceleration,
+  social mention velocity, rare-tier premium (the colorway sub-attribute
+  earning its keep: rare-tier median over family median, pre-cutoff)
+- peer-relative transforms: each core feature re-expressed as a z-score
+  against same-brand-and-category families at the same moment, computed in
+  Spark via a groupBy over (moment, brand, category). The peer-relative
+  label needs peer-relative inputs to have a fair chance. Feature peer
+  groups skip the price band the label uses: features are inputs, not the
+  answer, and the coarser group keeps the z-scores dense.
+- statics: brand, category, collab_flag, archive_flag (era string starts
+  with 'archive', or season-year fallback for real catalog eras)
+- celebrity_signal stubs: celebrity_event_count_90d and
+  celebrity_recency_days, wired now, landing as zero/null until the Phase
+  6b detector fills fact_celebrity_events. Columns exist so the model and
+  every downstream contract never changes shape when 6b lands.
 
-Output: Parquet partitioned by prediction year. Year partitioning matches
-how everything downstream reads this data: the Phase 7 time split selects
-by prediction moment, so pruning on year is the access pattern; item-level
-partitioning would mean thousands of tiny files for no read path that wants
-them.
+Output: Parquet partitioned by prediction year, matching how the time
+split reads it. One Spark action: collect once, validate, land via
+pyarrow with the same partitioning; writing through Spark as well would
+re-execute the DAG to serialize a few hundred rows.
 """
 from __future__ import annotations
 
@@ -42,6 +48,13 @@ LABELS_PATH = PROCESSED_DIR / "labels.parquet"
 SEASON_RE = re.compile(r"^(SS|FW)(\d{2})$")
 ARCHIVE_AGE_YEARS = 5
 
+PEER_FEATURES = (
+    "price_momentum_60d",
+    "sold_velocity_30d",
+    "search_slope_60d",
+    "social_velocity_60d",
+)
+
 
 def season_year(season: str | None) -> int | None:
     """SS03 -> 2003, FW97 -> 1997. Two-digit pivot at 89: below is 20xx."""
@@ -54,51 +67,59 @@ def season_year(season: str | None) -> int | None:
     return 2000 + two if two < 90 else 1900 + two
 
 
-def compute_features(spark, labels_df, sales_df, attention_df, items_df):
-    """All aggregations are conditional on source dates being <= T.
+def is_archive_era(era: str | None, prediction_year: int) -> bool:
+    """Synth eras say 'archive-...' outright; catalog eras carry year ranges
+    or season-derived years. Era-unknown is not archive; refusing to guess."""
+    if not era:
+        return False
+    if era.startswith("archive"):
+        return True
+    if era.startswith("recent"):
+        return False
+    years = re.findall(r"(19[89]\d|20[0-3]\d)", era)
+    if years:
+        return prediction_year - int(years[0]) >= ARCHIVE_AGE_YEARS
+    return False
 
-    Kept as one function taking DataFrames, not paths, so the leak canary
-    test can feed perturbed frames straight in.
-    """
+
+def compute_features(spark, labels_df, sales_df, attention_df, families_df):
+    """All aggregations conditional on source dates <= T; peer z-scores by
+    (moment, brand, category) in a second Spark pass. DataFrames in, not
+    paths, so the leak canary can feed perturbed frames straight in."""
     from pyspark.sql import functions as F
 
-    labels = labels_df.select("item_id", "prediction_moment", "label")
+    labels = labels_df.select("family_id", "prediction_moment", "label")
 
-    # ---- sales windows: one range join against the widest window, then
-    # conditional aggregation per sub-window. percentile_approx ignores
-    # nulls, so F.when carves the sub-windows out of the joined rows.
     sales = sales_df.select(
-        "item_id", F.col("sold_date").cast("date").alias("sold_date"), "sold_price_usd"
+        "family_id",
+        F.col("sold_date").cast("date").alias("sold_date"),
+        "sold_price_usd",
+        F.col("colorway_tier").alias("tier"),
     )
-    joined_sales = labels.join(sales, "item_id").where(
-        (F.col("sold_date") > F.date_sub(F.col("prediction_moment"), 180))
+    joined_sales = labels.join(sales, "family_id").where(
+        (F.col("sold_date") > F.date_sub(F.col("prediction_moment"), 120))
         & (F.col("sold_date") <= F.col("prediction_moment"))
     )
-
-    def in_window(start_days_ago: int, end_days_ago: int):
-        return (
-            F.col("sold_date") > F.date_sub(F.col("prediction_moment"), start_days_ago)
-        ) & (F.col("sold_date") <= F.date_sub(F.col("prediction_moment"), end_days_ago))
-
-    sales_features = joined_sales.groupBy("item_id", "prediction_moment").agg(
-        F.expr("percentile_approx(CASE WHEN sold_date > date_sub(prediction_moment, 45) THEN sold_price_usd END, 0.5)").alias("median_recent"),
-        F.expr("percentile_approx(CASE WHEN sold_date <= date_sub(prediction_moment, 45) AND sold_date > date_sub(prediction_moment, 90) THEN sold_price_usd END, 0.5)").alias("median_prior"),
+    sales_features = joined_sales.groupBy("family_id", "prediction_moment").agg(
+        F.expr("percentile_approx(CASE WHEN sold_date > date_sub(prediction_moment, 30) THEN sold_price_usd END, 0.5)").alias("median_recent"),
+        F.expr("percentile_approx(CASE WHEN sold_date <= date_sub(prediction_moment, 30) AND sold_date > date_sub(prediction_moment, 90) THEN sold_price_usd END, 0.5)").alias("median_prior"),
         F.expr("percentile_approx(CASE WHEN sold_date > date_sub(prediction_moment, 90) THEN sold_price_usd END, 0.5)").alias("median_90d"),
-        F.expr("percentile_approx(CASE WHEN sold_date <= date_sub(prediction_moment, 90) THEN sold_price_usd END, 0.5)").alias("median_90_180d"),
-        F.sum(F.when(in_window(90, 0), 1).otherwise(0)).alias("n_sales_90d"),
+        F.expr("percentile_approx(CASE WHEN sold_date > date_sub(prediction_moment, 90) AND tier = 'rare' THEN sold_price_usd END, 0.5)").alias("rare_median_90d"),
+        F.sum(F.when(F.col("sold_date") > F.date_sub(F.col("prediction_moment"), 90), 1).otherwise(0)).alias("n_sales_90d"),
         F.max("sold_date").alias("max_sales_date_used"),
     )
 
-    # ---- attention windows, same shape
     attention = attention_df.select(
-        "item_id", F.col("week_date").cast("date").alias("week_date"),
-        "search_interest", "social_mentions",
+        "family_id",
+        F.col("week_date").cast("date").alias("week_date"),
+        "search_interest",
+        "social_mentions",
     )
-    joined_attention = labels.join(attention, "item_id").where(
+    joined_attention = labels.join(attention, "family_id").where(
         (F.col("week_date") > F.date_sub(F.col("prediction_moment"), 90))
         & (F.col("week_date") <= F.col("prediction_moment"))
     )
-    attention_features = joined_attention.groupBy("item_id", "prediction_moment").agg(
+    attention_features = joined_attention.groupBy("family_id", "prediction_moment").agg(
         F.avg(F.expr("CASE WHEN week_date > date_sub(prediction_moment, 30) THEN search_interest END")).alias("interest_0_30"),
         F.avg(F.expr("CASE WHEN week_date <= date_sub(prediction_moment, 30) AND week_date > date_sub(prediction_moment, 60) THEN search_interest END")).alias("interest_30_60"),
         F.avg(F.expr("CASE WHEN week_date <= date_sub(prediction_moment, 60) THEN search_interest END")).alias("interest_60_90"),
@@ -107,26 +128,26 @@ def compute_features(spark, labels_df, sales_df, attention_df, items_df):
         F.max("week_date").alias("max_attention_date_used"),
     )
 
-    items = items_df.select(
-        "item_id", "brand", "category", "retail_price_usd", "season",
+    families = families_df.select(
+        "family_id", "brand", "category", "era", "retail_price_usd",
         F.col("collab_flag").cast("boolean").alias("collab_flag"),
     )
 
-    season_year_udf = F.udf(season_year, "int")
+    archive_udf = F.udf(is_archive_era, "boolean")
 
-    features = (
+    base = (
         labels
-        .join(sales_features, ["item_id", "prediction_moment"], "left")
-        .join(attention_features, ["item_id", "prediction_moment"], "left")
-        .join(items, "item_id", "left")
-        .withColumn("price_momentum_90d",
+        .join(sales_features, ["family_id", "prediction_moment"], "left")
+        .join(attention_features, ["family_id", "prediction_moment"], "left")
+        .join(families, "family_id", "left")
+        .withColumn("price_momentum_60d",
                     F.when(F.col("median_prior") > 0, F.col("median_recent") / F.col("median_prior") - 1))
         .withColumn("sold_velocity_30d", F.coalesce(F.col("n_sales_90d"), F.lit(0)) / 3.0)
         .withColumn("spread_at_cutoff",
                     F.when(F.col("retail_price_usd") > 0, F.col("median_90d") / F.col("retail_price_usd")))
-        .withColumn("spread_trend",
-                    F.when((F.col("median_90_180d") > 0) & F.col("median_90d").isNotNull(),
-                           F.col("median_90d") / F.col("median_90_180d") - 1))
+        .withColumn("rare_tier_premium",
+                    F.when((F.col("median_90d") > 0) & F.col("rare_median_90d").isNotNull(),
+                           F.col("rare_median_90d") / F.col("median_90d") - 1))
         .withColumn("search_slope_60d",
                     F.when(F.col("interest_30_60") > 0, F.col("interest_0_30") / F.col("interest_30_60") - 1))
         .withColumn("search_slope_prior",
@@ -135,20 +156,44 @@ def compute_features(spark, labels_df, sales_df, attention_df, items_df):
         .withColumn("social_velocity_60d",
                     (F.coalesce(F.col("mentions_0_30"), F.lit(0.0)) + 1)
                     / (F.coalesce(F.col("mentions_30_60"), F.lit(0.0)) + 1) - 1)
-        .withColumn("season_year", season_year_udf(F.col("season")))
+        .withColumn("prediction_year", F.year("prediction_moment"))
         .withColumn("archive_flag",
-                    F.when(F.col("season_year").isNotNull(),
-                           (F.year("prediction_moment") - F.col("season_year")) >= ARCHIVE_AGE_YEARS
-                           ).otherwise(F.lit(False)))
+                    F.coalesce(archive_udf(F.col("era"), F.col("prediction_year")), F.lit(False)))
+        .withColumn("celebrity_event_count_90d", F.lit(0).cast("long"))  # Phase 6b fills these
+        .withColumn("celebrity_recency_days", F.lit(None).cast("double"))
         .withColumn("max_source_date_used",
                     F.greatest(F.col("max_sales_date_used"), F.col("max_attention_date_used")))
-        .withColumn("prediction_year", F.year("prediction_moment"))
     )
 
+    # ---- peer-relative pass: z against same-(moment, category) peers.
+    # Category-wide rather than brand-and-category, deliberately: at the
+    # brand-and-category grain most groups fall under 3 members and the
+    # z-scores come back null, and a dense approximate input beats a
+    # precise null one. The LABEL keeps its stricter ladder; features are
+    # inputs, not the answer. Peer stats never read anything the base
+    # features didn't already read, so the as-of guarantee is inherited.
+    peer_stats = base.groupBy("prediction_moment", "category").agg(
+        *[F.avg(name).alias(f"{name}_peer_mean") for name in PEER_FEATURES],
+        *[F.stddev(name).alias(f"{name}_peer_std") for name in PEER_FEATURES],
+        F.count("family_id").alias("peer_group_size"),
+    )
+    features = base.join(peer_stats, ["prediction_moment", "category"], "left")
+    for name in PEER_FEATURES:
+        features = features.withColumn(
+            f"{name}_peer_z",
+            F.when(
+                (F.col(f"{name}_peer_std") > 0) & (F.col("peer_group_size") >= 3),
+                (F.col(name) - F.col(f"{name}_peer_mean")) / F.col(f"{name}_peer_std"),
+            ),
+        )
+
     return features.select(
-        "item_id", "prediction_moment", "prediction_year", "label",
-        "price_momentum_90d", "sold_velocity_30d", "spread_at_cutoff", "spread_trend",
+        "family_id", "prediction_moment", "prediction_year", "label",
+        "price_momentum_60d", "sold_velocity_30d", "spread_at_cutoff", "rare_tier_premium",
         "search_slope_60d", "search_accel", "social_velocity_60d",
+        *[f"{name}_peer_z" for name in PEER_FEATURES],
+        "peer_group_size",
+        "celebrity_event_count_90d", "celebrity_recency_days",
         "brand", "category", "collab_flag", "archive_flag",
         "max_source_date_used",
     )
@@ -156,22 +201,28 @@ def compute_features(spark, labels_df, sales_df, attention_df, items_df):
 
 def validate(frame) -> None:
     """Pandera gate: schema, ranges, required non-nulls, and the cutoff
-    invariant. Fails loudly; a feature set that fails this must not train."""
+    invariant. A feature set that fails this must not train."""
     import pandas as pd
     import pandera.pandas as pa
 
     schema = pa.DataFrameSchema(
         {
-            "item_id": pa.Column(str),
+            "family_id": pa.Column(str),
             "prediction_moment": pa.Column("datetime64[ns]", coerce=True),
             "label": pa.Column(bool),
-            "price_momentum_90d": pa.Column(float, pa.Check.in_range(-0.95, 20), nullable=True),
+            "price_momentum_60d": pa.Column(float, pa.Check.in_range(-0.95, 20), nullable=True),
             "sold_velocity_30d": pa.Column(float, pa.Check.ge(0)),
             "spread_at_cutoff": pa.Column(float, pa.Check.in_range(0, 100), nullable=True),
-            "spread_trend": pa.Column(float, pa.Check.in_range(-0.95, 20), nullable=True),
+            "rare_tier_premium": pa.Column(float, pa.Check.in_range(-0.95, 10), nullable=True),
             "search_slope_60d": pa.Column(float, pa.Check.in_range(-1, 50), nullable=True),
             "search_accel": pa.Column(float, nullable=True),
             "social_velocity_60d": pa.Column(float, pa.Check.in_range(-1, 100), nullable=True),
+            "price_momentum_60d_peer_z": pa.Column(float, pa.Check.in_range(-10, 10), nullable=True),
+            "sold_velocity_30d_peer_z": pa.Column(float, pa.Check.in_range(-10, 10), nullable=True),
+            "search_slope_60d_peer_z": pa.Column(float, pa.Check.in_range(-10, 10), nullable=True),
+            "social_velocity_60d_peer_z": pa.Column(float, pa.Check.in_range(-10, 10), nullable=True),
+            "celebrity_event_count_90d": pa.Column(int, pa.Check.ge(0)),
+            "celebrity_recency_days": pa.Column(float, pa.Check.ge(0), nullable=True),
             "brand": pa.Column(str),
             "category": pa.Column(str),
             "collab_flag": pa.Column(bool),
@@ -191,26 +242,24 @@ def validate(frame) -> None:
 def load_synth_frames(spark):
     import pandas as pd
 
-    from ml.synth import ATTENTION_FIXTURE, ITEMS_FIXTURE, SALES_FIXTURE
+    from ml.synth import ATTENTION_FIXTURE, FAMILIES_FIXTURE, SALES_FIXTURE
 
     labels = spark.createDataFrame(pd.read_parquet(LABELS_PATH))
     sales = spark.createDataFrame(pd.DataFrame(json.loads(SALES_FIXTURE.read_text())))
     attention = spark.createDataFrame(pd.DataFrame(json.loads(ATTENTION_FIXTURE.read_text())))
-    items = spark.createDataFrame(pd.DataFrame(json.loads(ITEMS_FIXTURE.read_text())))
-    return labels, sales, attention, items
+    families = spark.createDataFrame(pd.DataFrame(json.loads(FAMILIES_FIXTURE.read_text())))
+    return labels, sales, attention, families
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build as-of features with PySpark.")
+    parser = argparse.ArgumentParser(description="Build as-of family features with PySpark.")
     parser.add_argument("--source", choices=["synth"], default="synth",
                         help="warehouse source lands when real history exists")
-    args = parser.parse_args()
+    parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     import os
 
-    # local mode should never depend on the machine's hostname resolving
-    # (sandboxes and CI runners often can't); harmless on machines that can
     os.environ.setdefault("SPARK_LOCAL_IP", "127.0.0.1")
     os.environ.setdefault("SPARK_LOCAL_HOSTNAME", "localhost")
 
@@ -228,14 +277,16 @@ def main() -> None:
     try:
         frames = load_synth_frames(spark)
         features = compute_features(spark, *frames)
-        # One Spark action, not two: collect once, validate, and land the
-        # validated frame via pyarrow with the same year partitioning.
-        # Writing through Spark as well would re-execute the whole DAG just
-        # to serialize a few hundred rows.
         pandas_frame = features.toPandas()
     finally:
         spark.stop()
     validate(pandas_frame)
+    # clear stale partitions: pandas appends files per partition dir, and a
+    # grain change would otherwise leave old rows mixed into the dataset
+    import shutil
+
+    if FEATURES_PATH.exists():
+        shutil.rmtree(FEATURES_PATH)
     pandas_frame.to_parquet(FEATURES_PATH, partition_cols=["prediction_year"], index=False)
     logger.info("features: wrote %d rows to %s (partitioned by prediction_year)",
                 len(pandas_frame), FEATURES_PATH)

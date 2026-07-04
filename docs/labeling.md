@@ -1,95 +1,114 @@
-# Labeling: what "became a grail" means as a number
+# Labeling: peer-relative uplift at the style-family grain
 
-The label sounds simple and is where this project is most likely to fool
-itself. This page pins the definition and confronts the biases in the open.
+The label is where this project is most likely to fool itself. This page
+pins the definition and confronts the biases in the open. The target
+changed with the reseller pivot: the old absolute-appreciation label and
+its reasoning are in the DEVLOG history; this describes what runs now.
 
 ## The definition
 
-At a prediction moment T, an item is labeled positive if:
+At a prediction moment T, a style-family is a positive example if its
+blended uplift over (T, T+60d] beats its peer set by a statistically
+meaningful margin. Concretely:
+
+**Blended uplift**, in log space, outcome window over baseline window
+(T-60d, T]:
 
 ```
-median(sold_price_usd over (T, T+180d])
---------------------------------------  >= 1.5
-median(sold_price_usd over (T-90d, T])
+0.50 * log(median sold price ratio)
+0.30 * log(mean search interest ratio)
+0.20 * log(sales count ratio, +1 smoothed)
 ```
 
-with at least 2 sales in each window. Prediction moments sit on an aligned
-monthly grid, generated only where the data coverage allows a full baseline
-behind T and a full outcome window ahead of it.
+A component with insufficient data drops out and its weight redistributes
+over the rest, the same philosophy as the resolution matcher: absence of
+evidence is not evidence, and a family shouldn't be punished because a
+platform's data is sparse. Price carries half the weight because it is the
+money; interest is the leading signal the generator (and the market
+hypothesis) says moves first; velocity is real but the noisiest of the
+three.
 
-Why these numbers:
+**Peer set**, a fallback ladder, recorded per row as peer_basis:
 
-- **1.5x**: grail moves are multiples, not percentages. Secular luxury-resale
-  drift and platform-level noise live in the ±20% band; a piece that adds
-  half its value in six months has inflected. The threshold is a config
-  field, not a constant, and the Phase 7 evaluation should include
-  sensitivity to it before any conclusion gets trusted.
-- **180-day outcome**: hype inflections in this market play out over a few
-  months (the synthetic generator's 90-120 day ramps mirror what archive
-  pieces do when a co-sign lands). Much shorter and the window misses slow
-  builds; much longer and the label starts rewarding secular drift.
-- **90-day baseline**: long enough to median away single-sale flukes, short
-  enough that the baseline is "the price before the move" rather than
-  ancient history.
-- **Median, both sides**: a single desperate seller or a single overpay
-  should not define either price. With a 2-sale minimum the median is the
-  honest small-sample choice.
+1. same brand + category + baseline price within [0.4x, 2.5x] ('brand')
+2. same brand + category ('brand_wide')
+3. same category + price band, any brand ('category')
 
-An important consequence of the definition: an item that already inflated
-labels negative afterward (1100 to 1100 is a ratio of 1.0). The target is
-up-and-comers, not pieces that are already hot, and there is a test pinning
-exactly that behavior.
+At least 3 peers at some rung, or the family is peer-unmeasurable at that
+moment: excluded and counted, never labeled. The category rung exists
+because brand-by-category cells are thin in any realistic catalog, and an
+archive knit is a fair peer to archive knits across brands for the purpose
+of cancelling market-wide moves.
+
+**The bar**: robust z against the peer distribution,
+(uplift - peer median) / max(1.4826 * MAD, 0.05), positive when z >= 2.0
+AND the raw edge over the peer median is at least 15 points. Two knobs on
+purpose: the z alone fires on degenerate near-zero dispersion, the edge
+floor alone fires inside noisy peer sets. The 0.05 spread floor earned its
+place in testing: a perfectly still peer set has MAD 0, and the naive
+handling hid a genuine 81% outperformer behind motionless peers.
+
+## Why peer-relative at all
+
+Because the alternative mints false positives from the tide. The synthetic
+market bakes in a shared market factor (a cycle plus secular drift) and
+per-brand drifts, so every family's absolute numbers rise together at
+times. An absolute threshold would flag them all. The negative-control
+test constructs exactly that: six families doubling in lockstep, and the
+label must stay silent because nobody beat anybody. A reseller's capital
+is finite; the watchlist exists to rank what beats the market they're
+already in, not to describe the market.
+
+An important consequence, tested: a family that already rose labels
+negative afterward. The target is the inflection, not the plateau.
 
 ## Look-ahead bias
 
-The label is defined over a future window, so the machinery has to make
-peeking structurally hard, not just discouraged:
+Unchanged discipline from v1, re-proven against the new math:
 
-- Baseline reads sales at or before T only; outcome reads strictly after T
-  only. The windows cannot overlap by construction.
-- Every labeled row carries its prediction_moment explicitly. Phase 6's
-  contract is that every feature is computed from data at or before that
-  moment, and its tests must include a leak canary.
-- The leak tests in tests/test_labeling.py prove invariance both ways:
-  multiply every post-T price by 10 and the baseline must not move a cent;
-  rewrite the pre-T history and the outcome must not move either. If either
-  test ever fails, nothing downstream is trustworthy.
+- Baseline reads data at or before T only; outcome strictly after T only.
+- Every labeled row carries its prediction_moment. Phase 6's contract is
+  that every feature computes from data at or before it, machine-checked.
+- Invariance tests both ways: multiply post-T prices by ten, baseline
+  must not move a cent; rewrite pre-T history, the labels at the probed
+  moment must not change.
+
+One subtlety worth stating: the label legitimately reads the future of
+peers, because outcomes are ground truth and peer outcomes are part of the
+outcome definition. Features may never do this. The line is between what
+defines the answer and what the model is allowed to see.
 
 ## Survivorship bias
 
-We only see pieces that got listed, on platforms we ingest, in listings our
-entity resolution managed to unify. That excludes: pieces so hyped they
-sell privately before listing, pieces on platforms outside the six we
-cover, and pieces whose listings were too sparse to resolve (the Phase 2a
-residual). Every claim this model makes is therefore a claim about the
-*listed, resolved* universe, not about fashion at large. The resolution
-rate from Phase 2a is part of the model's fine print.
+We only see families whose listings got ingested, resolved, and family-
+assigned. The Phase 2a and 2c residuals (unmatched listings, unresolved
+model lines) are part of this model's fine print, and thin families are
+excluded rather than labeled. Claims are about the listed, resolved,
+measurable universe.
 
 ## Thin data: excluded, not negative
 
-An (item, moment) pair without 2 sales on each side is dropped and counted,
-not labeled 0. Labeling illiquid items negative would teach the model that
-illiquidity predicts failure, when illiquidity actually predicts *nothing
-measurable*. The cost, stated: the model can never flag a piece before its
-market has at least minimal liquidity, so the earliest phase of any grail's
-life is invisible to it. That is a real limitation of a price-based label,
-and attention signals (search, social) can only partially compensate.
+A (family, moment) without 2 sales and, when interest is present, 4
+interest weeks per window is unmeasured. Labeling it negative would teach
+the model that illiquidity predicts failure, when illiquidity predicts
+nothing measurable. The cost, stated: the earliest and most illiquid phase
+of a family's rise is invisible to the label, which is exactly the phase a
+reseller would most like to catch. Attention signals partially compensate,
+and the limitation stands.
 
 ## Concept drift
 
-Hype cycles shift. A model trained on 2024-2025 grails learns what
-2024-2025 hype looked like; the mechanism that made Number (N)ine explode
-is not the mechanism that will move the next thing. The time-based split in
-Phase 7 measures generalization forward honestly, but it cannot fix drift,
-only reveal it. Stated as a standing limitation.
+Hype cycles shift. The mechanism that made Number (N)ine explode is not
+the mechanism that moves the next thing. The time split in Phase 7
+measures forward generalization honestly; it cannot fix drift, only reveal
+it. Standing limitation.
 
 ## The synthetic-data caveat
 
-The labeling machinery is demonstrated end to end on a seeded synthetic
-market (ml/synth.py) because the hand-written platform fixtures span three
-months and cannot produce a single labelable example under a 90d+180d
-design. On the synthetic set, positives land exclusively on
-inflection-regime items at the moments whose outcome window catches the
-ramp, which is the mechanics working as designed. It is not evidence the
-label finds real grails. That evidence waits for real ingested history, and
-docs/evaluation.md must say which kind of data any reported number came from.
+All numbers on this page's machinery come from the seeded synthetic market
+(ml/synth.py): 48 families, layered market/brand/regime price factors,
+attention leading price by 30-60 days for grail families. On it, positives
+land exclusively on grail-regime families at a 4% overall rate, and the
+market tide mints zero false positives. That proves the mechanics, not the
+market. Real conclusions wait for real ingested history, and every
+downstream doc says which kind of data its numbers came from.

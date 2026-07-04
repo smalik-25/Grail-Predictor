@@ -247,3 +247,27 @@ The era fragmentation problem showed up in the first run: one FW10-tagged Geobas
 **What's next**
 
 Labeling v2: peer-relative uplift on a blended signal at the family grain, with the synth generator regrown to families and peer structure.
+
+---
+
+## Labeling v2 and features v2: the peer-relative target
+
+**What I built**
+
+The synthetic market regrown at family grain with layered price factors: a shared market swell plus secular drift that every family floats on, per-brand drifts, and the per-family regime curve on top, with rare-tier sales priced above baseline and attention still leading grail inflections by 30 to 60 days. The label rebuilt: blended log-uplift (price 0.50, search interest 0.30, sales velocity 0.20, missing components redistributing their weight) over 60-day windows, measured against a peer set with a recorded fallback ladder (brand+category+price band, then brand+category, then category+band), positive at robust z >= 2 with a 15-point edge floor. Features regrained to family with peer z-scores computed in Spark at (moment, category), a rare-tier premium feature, and celebrity_signal columns wired as zeros until 6b fills them. Every as-of control survived: max_source_date_used, the Pandera cutoff gate, bit-equality leak canaries, both-direction label invariance. 131 tests.
+
+**Why these decisions**
+
+The market factor in the generator is the argument for the target, executable. Six families doubling in lockstep must label nothing, and that negative control is a test now. An absolute threshold would have flagged all six; a reseller's capital is finite and the watchlist ranks what beats the market, it doesn't describe the market.
+
+Two design decisions came out of failures during the build, which is where they should come from. First, the degenerate-MAD bug: with perfectly flat peers the spread is zero, and my first cut zeroed the z, hiding an 81% outperformer behind motionless peers, the exact case the label exists to catch. The fix is a 0.05 log-point spread floor, and the reasoning lives next to the config knob. Second, peer sparsity: brand-by-category cells are thin (two thirds of pairs came back peer-unmeasurable on the first run), so the label got its fallback ladder with the basis recorded per row, and the feature z-scores went category-wide outright, because a dense approximate input beats a precise null one. The label stays strict; the features don't have to be.
+
+One line worth keeping from the docs: the label legitimately reads the future of peers, because peer outcomes are part of the outcome definition. Features never may. The line is between what defines the answer and what the model is allowed to see.
+
+**What I learned or got stuck on**
+
+Stale Parquet partitions bit once: pandas appends files per partition directory, so a grain change left old item-grain rows mixed into the features dataset until the writer learned to clear the directory first. Cheap lesson, now structural.
+
+**What's next**
+
+Phase 6b, the celebrity/editorial detector: fact_celebrity_events, the curated figure list, and the features flipping from stubs to signal. Then the retargeted train and evaluate.

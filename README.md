@@ -8,12 +8,12 @@ A decision tool for small and mid-size resellers of archive and avant-garde fash
 - [x] Phase 1: Ingestion (Grailed and eBay first, then the rest)
 - [x] Phase 2a: Entity resolution, text
 - [ ] Phase 2b: Entity resolution, image (only if residual numbers from real volume demand it)
-- [ ] Phase 2c: Regrain resolution to style-families (with the schema migration)
+- [x] Phase 2c: Regrain resolution to style-families (with the schema migration)
 - [x] Phase 3: Schema and warehouse
 - [x] Phase 4: dbt transformation layer
-- [ ] Phase 4b: Marts regrained to family
-- [ ] Phase 5: Labeling, peer-relative uplift at family grain
-- [ ] Phase 6: Feature engineering, peer-set and colorway features
+- [x] Phase 4b: Marts regrained to family
+- [x] Phase 5: Labeling, peer-relative uplift at family grain
+- [x] Phase 6: Feature engineering, peer-set and colorway features
 - [ ] Phase 6b: Celebrity/editorial signal detection
 - [ ] Phase 7: Train and evaluate
 - [ ] Phase 8: Decision backtest
