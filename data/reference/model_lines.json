@@ -1,0 +1,76 @@
+{
+  "_comment": "Model-line vocabulary and era/generation boundaries per brand. Eras are seeded where I can document them (the Margiela Future generations come from the case study); model lines without an era table fall back to decade buckets. The structure is deliberately open: real ingestion volume will grow this file.",
+  "Rick Owens": {
+    "Geobasket": {
+      "aliases": ["geobasket", "geobaskets", "geo basket", "geo baskets"],
+      "category": "footwear",
+      "eras": [
+        {"name": "og-2006-2012", "start": 2006, "end": 2012},
+        {"name": "mid-2013-2018", "start": 2013, "end": 2018},
+        {"name": "reissue-2019-plus", "start": 2019, "end": 2030}
+      ]
+    },
+    "Ramones": {
+      "aliases": ["ramones"],
+      "category": "footwear",
+      "eras": [
+        {"name": "early-2005-2012", "start": 2005, "end": 2012},
+        {"name": "drkshdw-era-2013-plus", "start": 2013, "end": 2030}
+      ]
+    }
+  },
+  "Maison Margiela": {
+    "GAT Replica": {
+      "aliases": ["gat", "gats", "german army trainer", "german army trainers", "replica"],
+      "category": "footwear",
+      "eras": [
+        {"name": "margiela-era-1999-2009", "start": 1999, "end": 2009},
+        {"name": "post-margiela-2010-plus", "start": 2010, "end": 2030}
+      ]
+    },
+    "Future High-Top": {
+      "aliases": ["future", "future high top", "future hi", "future high-top"],
+      "category": "footwear",
+      "eras": [
+        {"name": "first-gen-2009-2012", "start": 2009, "end": 2012},
+        {"name": "yeezus-era-2013-2014", "start": 2013, "end": 2014},
+        {"name": "later-2015-plus", "start": 2015, "end": 2030}
+      ]
+    }
+  },
+  "Number (N)ine": {
+    "Kurt Cardigan": {
+      "aliases": ["kurt cardigan", "kurt cobain cardigan", "kurt"],
+      "category": "knitwear",
+      "eras": [
+        {"name": "touch-me-ss03", "start": 2003, "end": 2003},
+        {"name": "reissues-2004-plus", "start": 2004, "end": 2030}
+      ]
+    }
+  },
+  "Undercover": {
+    "Scab": {
+      "aliases": ["scab", "scab period", "scab blouson", "scab jacket"],
+      "category": "outerwear",
+      "eras": [
+        {"name": "scab-ss03", "start": 2003, "end": 2003}
+      ]
+    }
+  },
+  "Enfant Riches Deprimes": {
+    "Assemblage Hoodie": {
+      "aliases": ["assemblage hoodie", "assemblage"],
+      "category": "tops",
+      "eras": []
+    }
+  },
+  "Balenciaga": {
+    "Ghesquiere Runway Outerwear": {
+      "aliases": ["ghesquiere bomber", "ghesquiere runway", "ghesquiere jacket", "ghesquiere"],
+      "category": "outerwear",
+      "eras": [
+        {"name": "ghesquiere-1997-2012", "start": 1997, "end": 2012}
+      ]
+    }
+  }
+}

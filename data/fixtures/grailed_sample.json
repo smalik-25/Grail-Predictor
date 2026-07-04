@@ -2,7 +2,9 @@
   {
     "id": 71234501,
     "title": "Rick Owens Geobasket High Top Black Leather 43",
-    "designer": {"name": "Rick Owens"},
+    "designer": {
+      "name": "Rick Owens"
+    },
     "price": 1150,
     "currency": "USD",
     "size": "43",
@@ -10,14 +12,20 @@
     "created_at": "2026-05-02T14:11:09Z",
     "sold_at": null,
     "sold_price": null,
-    "cover_photo": {"url": "https://media-assets.grailed.com/prd/listing/71234501/cover.jpg"},
-    "user": {"username": "archive_vault"},
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234501/cover.jpg"
+    },
+    "user": {
+      "username": "archive_vault"
+    },
     "season": "FW10"
   },
   {
     "id": 71234502,
     "title": "rick owens ramones size 44 mainline not drkshdw",
-    "designer": {"name": "Rick Owens"},
+    "designer": {
+      "name": "Rick Owens"
+    },
     "price": 640,
     "currency": "USD",
     "size": "44",
@@ -25,13 +33,19 @@
     "created_at": "2026-06-11T09:30:00Z",
     "sold_at": null,
     "sold_price": null,
-    "cover_photo": {"url": "https://media-assets.grailed.com/prd/listing/71234502/cover.jpg"},
-    "user": {"username": "ramonesenjoyer"}
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234502/cover.jpg"
+    },
+    "user": {
+      "username": "ramonesenjoyer"
+    }
   },
   {
     "id": 71234503,
     "title": "Maison Margiela GAT German Army Trainer White Grey 42",
-    "designer": {"name": "Maison Margiela"},
+    "designer": {
+      "name": "Maison Margiela"
+    },
     "price": 285,
     "currency": "USD",
     "size": "42",
@@ -39,13 +53,19 @@
     "created_at": "2026-04-19T18:45:12Z",
     "sold_at": null,
     "sold_price": null,
-    "cover_photo": {"url": "https://media-assets.grailed.com/prd/listing/71234503/cover.jpg"},
-    "user": {"username": "belgianwardrobe"}
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234503/cover.jpg"
+    },
+    "user": {
+      "username": "belgianwardrobe"
+    }
   },
   {
     "id": 71234504,
     "title": "Number (N)ine Kurt Cobain Cardigan Mohair SS03 Touch Me I'm Sick",
-    "designer": {"name": "Number (N)ine"},
+    "designer": {
+      "name": "Number (N)ine"
+    },
     "price": 3400,
     "currency": "USD",
     "size": "3",
@@ -53,14 +73,20 @@
     "created_at": "2026-03-28T22:03:41Z",
     "sold_at": null,
     "sold_price": null,
-    "cover_photo": {"url": "https://media-assets.grailed.com/prd/listing/71234504/cover.jpg"},
-    "user": {"username": "takahiromiyashitathesoloist"},
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234504/cover.jpg"
+    },
+    "user": {
+      "username": "takahiromiyashitathesoloist"
+    },
     "season": "SS03"
   },
   {
     "id": 71234505,
     "title": "Undercover Scab Period Crust Jacket 68 SS03 Archive",
-    "designer": {"name": "Undercover"},
+    "designer": {
+      "name": "Undercover"
+    },
     "price": 5200,
     "currency": "USD",
     "size": "3",
@@ -68,14 +94,20 @@
     "created_at": "2026-02-14T11:12:13Z",
     "sold_at": "2026-06-01T16:20:00Z",
     "sold_price": 4800,
-    "cover_photo": {"url": "https://media-assets.grailed.com/prd/listing/71234505/cover.jpg"},
-    "user": {"username": "junspiracy"},
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234505/cover.jpg"
+    },
+    "user": {
+      "username": "junspiracy"
+    },
     "season": "SS03"
   },
   {
     "id": 71234506,
     "title": "Enfant Riches Deprimes Assemblage Hoodie Black Logo",
-    "designer": {"name": "Enfant Riches Deprimes"},
+    "designer": {
+      "name": "Enfant Riches Deprimes"
+    },
     "price": 890,
     "currency": "USD",
     "size": "L",
@@ -83,13 +115,19 @@
     "created_at": "2026-06-25T08:00:00Z",
     "sold_at": null,
     "sold_price": null,
-    "cover_photo": {"url": "https://media-assets.grailed.com/prd/listing/71234506/cover.jpg"},
-    "user": {"username": "erdarchivist"}
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234506/cover.jpg"
+    },
+    "user": {
+      "username": "erdarchivist"
+    }
   },
   {
     "id": 71234507,
     "title": "Balenciaga FW07 Nicolas Ghesquiere Runway Bomber 48",
-    "designer": {"name": "Balenciaga"},
+    "designer": {
+      "name": "Balenciaga"
+    },
     "price": 1650,
     "currency": "USD",
     "size": "48",
@@ -97,8 +135,12 @@
     "created_at": "2026-05-30T19:55:31Z",
     "sold_at": null,
     "sold_price": null,
-    "cover_photo": {"url": "https://media-assets.grailed.com/prd/listing/71234507/cover.jpg"},
-    "user": {"username": "ghesquiereera"},
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234507/cover.jpg"
+    },
+    "user": {
+      "username": "ghesquiereera"
+    },
     "season": "FW07"
   },
   {
@@ -112,7 +154,31 @@
     "created_at": "2026-06-29T13:37:00Z",
     "sold_at": null,
     "sold_price": null,
-    "cover_photo": {"url": "https://media-assets.grailed.com/prd/listing/71234508/cover.jpg"},
-    "user": {"username": "quickflip99"}
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234508/cover.jpg"
+    },
+    "user": {
+      "username": "quickflip99"
+    }
+  },
+  {
+    "id": 71234509,
+    "title": "Maison Martin Margiela Future High Top Black Leather 2013",
+    "designer": {
+      "name": "Maison Martin Margiela"
+    },
+    "price": 890,
+    "currency": "USD",
+    "size": "43",
+    "condition": "used",
+    "created_at": "2026-05-20T10:00:00Z",
+    "sold_at": null,
+    "sold_price": null,
+    "cover_photo": {
+      "url": "https://media-assets.grailed.com/prd/listing/71234509/cover.jpg"
+    },
+    "user": {
+      "username": "futurecollector"
+    }
   }
 ]

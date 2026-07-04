@@ -1,6 +1,12 @@
 version: 2
 
 models:
+  - name: stg_style_families
+    columns:
+      - name: family_id
+        tests: [unique, not_null]
+      - name: era
+        tests: [not_null]
   - name: stg_items
     columns:
       - name: item_id

@@ -16,6 +16,7 @@ from __future__ import annotations
 import datetime
 import json
 import logging
+import math
 import os
 from pathlib import Path
 from typing import Any, Iterable
@@ -51,6 +52,8 @@ def parse_date(value: Any) -> datetime.date | None:
     """
     if value is None or value == "":
         return None
+    if isinstance(value, float) and math.isnan(value):
+        return None  # pandas represents missing values as NaN after Parquet round-trips
     if isinstance(value, datetime.date):
         return value
     text = str(value).strip()
@@ -63,6 +66,24 @@ def parse_date(value: Any) -> datetime.date | None:
     except ValueError:
         logger.warning("unparseable date %r; storing NULL", value)
         return None
+
+
+def scrub_nan(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Replace pandas NaN with None across record dicts.
+
+    Parquet round-trips turn None into float NaN, and a float NaN reaching
+    psycopg2 becomes a NUMERIC literal: Postgres then type-infers the whole
+    VALUES column as double precision and the first real string ('M') blows
+    up the load. Scrubbing at the read boundary keeps the row builders and
+    everything downstream honestly typed.
+    """
+    return [
+        {
+            key: (None if isinstance(value, float) and math.isnan(value) else value)
+            for key, value in record.items()
+        }
+        for record in records
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -95,23 +116,52 @@ def dim_items_rows(items: Iterable[dict[str, Any]], listings: Iterable[dict[str,
     ]
 
 
+def dim_style_families_rows(
+    families: Iterable[dict[str, Any]], listings: Iterable[dict[str, Any]]
+) -> list[tuple]:
+    """(family_id, brand, model_line, era, colorway_tiers, first_seen_date)."""
+    first_seen: dict[str, datetime.date] = {}
+    for listing in listings:
+        family = listing.get("family_id")
+        date = parse_date(listing.get("listed_date")) or parse_date(listing.get("sold_date"))
+        if family and date and (family not in first_seen or date < first_seen[family]):
+            first_seen[family] = date
+    return [
+        (
+            family["family_id"],
+            family["brand"],
+            family["model_line"],
+            family["era"],
+            family.get("colorway_tiers"),
+            first_seen.get(family["family_id"]),
+        )
+        for family in families
+    ]
+
+
 def fact_listings_rows(listings: Iterable[dict[str, Any]]) -> list[tuple]:
-    """(item_id, platform_name, listing_url, listed_date, asking_price,
-    currency, size_normalized, condition_ordinal, is_sold, sold_date,
-    sold_price). platform_name resolves to platform_id inside the INSERT."""
+    """(item_id, family_id, colorway, colorway_tier, platform_name,
+    listing_url, listed_date, asking_price, currency, size_normalized,
+    condition_ordinal, is_sold, sold_date, sold_price). platform_name
+    resolves to platform_id inside the INSERT."""
     rows = []
     for listing in listings:
         sold_price = listing.get("sold_price")
+        condition = listing.get("condition_ordinal")
         rows.append(
             (
                 listing["item_id"],
+                listing.get("family_id"),
+                listing.get("colorway"),
+                listing.get("colorway_tier") or "unknown",
                 listing["platform"],
                 listing.get("listing_url"),
                 parse_date(listing.get("listed_date")),
                 listing.get("price"),
                 listing.get("currency"),
                 listing.get("size_normalized"),
-                listing.get("condition_ordinal"),
+                # pandas widens nullable ints to float (4 -> 4.0); SMALLINT wants int
+                int(condition) if condition is not None else None,
                 sold_price is not None or parse_date(listing.get("sold_date")) is not None,
                 parse_date(listing.get("sold_date")),
                 sold_price,
@@ -176,12 +226,13 @@ def latest_raw(source: str) -> list[dict[str, Any]]:
         return json.load(handle)
 
 
-def read_catalog() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def read_catalog() -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     import pandas as pd
 
-    items = pd.read_parquet(PROCESSED_DIR / "catalog_items.parquet").to_dict("records")
-    listings = pd.read_parquet(PROCESSED_DIR / "catalog_listings.parquet").to_dict("records")
-    return items, listings
+    items = scrub_nan(pd.read_parquet(PROCESSED_DIR / "catalog_items.parquet").to_dict("records"))
+    families = scrub_nan(pd.read_parquet(PROCESSED_DIR / "catalog_families.parquet").to_dict("records"))
+    listings = scrub_nan(pd.read_parquet(PROCESSED_DIR / "catalog_listings.parquet").to_dict("records"))
+    return items, families, listings
 
 
 def load_all(database_url: str | None = None) -> dict[str, int]:
@@ -196,7 +247,7 @@ def load_all(database_url: str | None = None) -> dict[str, int]:
             "'docker compose up -d' and export "
             "DATABASE_URL=postgresql://grail:grail@localhost:5432/grail"
         )
-    items, listings = read_catalog()
+    items, families, listings = read_catalog()
     counts: dict[str, int] = {}
     with psycopg2.connect(url) as connection:
         with connection.cursor() as cursor:
@@ -215,12 +266,21 @@ def load_all(database_url: str | None = None) -> dict[str, int]:
             )
             execute_values(
                 cursor,
-                "INSERT INTO fact_listings (item_id, platform_id, listing_url, listed_date, "
-                "asking_price, currency, size_normalized, condition_ordinal, is_sold, sold_date, sold_price) "
-                "SELECT r.item_id, p.platform_id, r.listing_url, r.listed_date, r.asking_price, "
-                "r.currency, r.size_normalized, r.condition_ordinal, r.is_sold, r.sold_date, r.sold_price "
-                "FROM (VALUES %s) AS r (item_id, platform_name, listing_url, listed_date, asking_price, "
-                "currency, size_normalized, condition_ordinal, is_sold, sold_date, sold_price) "
+                "INSERT INTO dim_style_families (family_id, brand, model_line, era, colorway_tiers, first_seen_date) "
+                "VALUES %s ON CONFLICT (family_id) DO NOTHING",
+                dim_style_families_rows(families, listings),
+            )
+            execute_values(
+                cursor,
+                "INSERT INTO fact_listings (item_id, family_id, colorway, colorway_tier, platform_id, "
+                "listing_url, listed_date, asking_price, currency, size_normalized, condition_ordinal, "
+                "is_sold, sold_date, sold_price) "
+                "SELECT r.item_id, r.family_id, r.colorway, r.colorway_tier, p.platform_id, "
+                "r.listing_url, r.listed_date, r.asking_price, r.currency, r.size_normalized, "
+                "r.condition_ordinal, r.is_sold, r.sold_date, r.sold_price "
+                "FROM (VALUES %s) AS r (item_id, family_id, colorway, colorway_tier, platform_name, "
+                "listing_url, listed_date, asking_price, currency, size_normalized, condition_ordinal, "
+                "is_sold, sold_date, sold_price) "
                 "JOIN dim_platforms p ON p.platform_name = r.platform_name "
                 "ON CONFLICT ON CONSTRAINT uq_listing_natural_key DO NOTHING",
                 fact_listings_rows(listings),
@@ -250,7 +310,7 @@ def load_all(database_url: str | None = None) -> dict[str, int]:
                 "ON CONFLICT ON CONSTRAINT uq_social_natural_key DO NOTHING",
                 fact_social_rows(latest_raw("social")),
             )
-            for table in ("dim_platforms", "dim_items", "fact_listings",
+            for table in ("dim_platforms", "dim_items", "dim_style_families", "fact_listings",
                           "fact_retail_prices", "fact_search_interest", "fact_social_mentions"):
                 cursor.execute(f"SELECT count(*) FROM {table}")  # noqa: S608 - fixed table list
                 counts[table] = cursor.fetchone()[0]

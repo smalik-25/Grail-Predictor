@@ -6,6 +6,7 @@ sources:
     schema: public
     tables:
       - name: dim_items
+      - name: dim_style_families
       - name: dim_platforms
       - name: fact_listings
       - name: fact_retail_prices

@@ -115,6 +115,62 @@ either way. If live Vestiaire data shows the same pattern at scale, image
 similarity gets built and measured against these same metrics. Recorded
 here so the decision input is explicit.
 
+## The style-family grain (Phase 2c)
+
+The pivot to the reseller framing changed resolution's output unit. Items
+(same product, via the matcher) remain as the comps layer, but the
+forecasting grain is now the style-family: **Brand -> Model-line ->
+Era/Generation, with colorway tier as a sub-attribute**, never part of the
+key. Finer grain gives cleaner price signal but thinner data; coarser
+gives more data but mushier signal. Brand + model-line + era is where
+those balance for archive fashion: hype on a generation lifts the family,
+hype on one colorway is caught by the tier without fragmenting the data.
+
+Assignment works off reference data in data/reference/: model_lines.json
+(per-brand alias vocabularies plus era tables where release history is
+documented; decade buckets as the fallback, era-unknown when there is no
+year signal at all) and colorways.json (extraction vocabulary plus
+per-line tier maps: core, rare, standard, unknown).
+
+**Identity propagation is the piece that makes the grain usable.** Most
+resale listings carry no year and many carry sparse titles. But if the
+matcher already decided two listings are the same product, they share a
+family: within each canonical item, a lone distinct model line propagates
+to same-brand members that lack one, and a lone distinct known era
+propagates to era-unknown members. Conflicts propagate nothing and get
+logged. On fixtures this took family coverage from 66% to 81%, and it is
+why "RO leather high top black sz 10" and Vestiaire's "Leather high
+trainers" both land in the Geobasket og-2006-2012 family despite naming
+neither the model nor the year.
+
+### The Margiela Future worked example
+
+Two Future listings in the fixtures: "Maison Martin Margiela Future High
+Top Black Leather 2013" and "Maison Margiela future high top white leather
+43 2018". The text matcher merges them into one canonical item, because on
+titles alone they are near-identical, and that is exactly the failure the
+era table catches: 2013 buckets to yeezus-era-2013-2014, 2018 to
+later-2015-plus, the eras conflict inside the item, propagation refuses to
+pick a side, and they land in two families. Value concentrated in the
+2013-14 generation is precisely what the old item grain would have blurred
+away. Their colorways (black -> core, white -> core) sit as tiers inside
+their families, not as family splits.
+
+### Family measurement on fixtures (32 listings)
+
+| Metric | Value |
+|---|---|
+| Families formed | 9 |
+| Listings in families | 26 (81%) |
+| Model line unresolved | 6 |
+| Era unknown after propagation | 8 |
+
+The unresolved six are honest residual: pieces like the 2nd Street "NUMBER
+(N)INE MOHAIR CARDIGAN NAVY 03SS" phrased without any vocabulary alias.
+That is where the model-line vocabulary grows with real data, and where
+the domain knowledge lives: someone who knows the market adds the aliases
+a keyword list can't guess.
+
 ## Known open items
 
 - Item ids are deterministic for identical inputs but not durable under

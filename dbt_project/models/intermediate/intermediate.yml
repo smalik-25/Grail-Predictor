@@ -1,21 +1,21 @@
 version: 2
 
 models:
-  - name: int_item_sales
+  - name: int_family_sales
     columns:
-      - name: item_id
+      - name: family_id
         tests:
           - not_null
           - relationships:
-              to: ref('stg_items')
-              field: item_id
-  - name: int_item_daily_resale
+              to: ref('stg_style_families')
+              field: family_id
+  - name: int_family_daily_resale
     columns:
-      - name: item_id
+      - name: family_id
         tests: [not_null]
       - name: sold_price_usd
         tests: [not_null]
-  - name: int_listing_liquidity
+  - name: int_family_liquidity
     columns:
-      - name: item_id
+      - name: family_id
         tests: [unique, not_null]

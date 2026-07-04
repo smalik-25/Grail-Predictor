@@ -1,30 +1,39 @@
 # Grail Predictor
 
-Predicting which luxury and avant-garde fashion pieces are about to become grails, before the resale market prices them in.
+A decision tool for small and mid-size resellers of archive and avant-garde fashion: what to buy, what it's worth, and whether to hold it or move it.
 
 ## Progress
 
 - [x] Phase 0: Scaffold
 - [x] Phase 1: Ingestion (Grailed and eBay first, then the rest)
 - [x] Phase 2a: Entity resolution, text
-- [ ] Phase 2b: Entity resolution, image (only if the 2a numbers demand it)
+- [ ] Phase 2b: Entity resolution, image (only if residual numbers from real volume demand it)
+- [ ] Phase 2c: Regrain resolution to style-families (with the schema migration)
 - [x] Phase 3: Schema and warehouse
-- [ ] Phase 4: dbt transformation layer
-- [ ] Phase 5: Labeling the target
-- [ ] Phase 6: Feature engineering
+- [x] Phase 4: dbt transformation layer
+- [ ] Phase 4b: Marts regrained to family
+- [ ] Phase 5: Labeling, peer-relative uplift at family grain
+- [ ] Phase 6: Feature engineering, peer-set and colorway features
+- [ ] Phase 6b: Celebrity/editorial signal detection
 - [ ] Phase 7: Train and evaluate
-- [ ] Phase 8: Dashboard
-- [ ] Phase 9: Deploy, containerize, finalize
+- [ ] Phase 8: Decision backtest
+- [ ] Phase 8b: Pricing and hold-or-move layer
+- [ ] Phase 9: Dashboard, reseller framing
+- [ ] Phase 10: Deploy, containerize, finalize
 
 ## What this is
 
-By the time a Raf Simons bomber hits four figures on Grailed, everyone already knows. The interesting problem is earlier: catching a piece while it is quietly moving from listed-and-ignored to watched-and-bid-on. This project tries to flag that inflection for archive and designer clothing, brands like Rick Owens, Maison Margiela, Number (N)ine, Undercover, Enfant Riches Deprimes.
+A reseller of archive fashion makes or loses money on three calls: what to buy, what to charge, and when to mark down. This tool supports those calls for the world of Rick Owens, Maison Margiela, Balenciaga, Number (N)ine, Undercover, and Enfant Riches Deprimes. It flags which style-families are about to rise before the market prices them in, tells the reseller what a flagged piece is worth from condition-adjusted sold comps, and says hold or move. The proof is a decision backtest: what acting on the watchlist at a historical cutoff would have done to margin and sell-through, not a model score.
+
+The project started as a pure grail predictor and pivoted to this reseller framing partway through; the commit history shows the seam, on purpose.
+
+The unit of analysis is the style-family: Brand, then model-line, then era or generation, with material and colorway tier as a sub-attribute underneath. "Maison Margiela Future high-top, 2013-14 generation" is a family; its black and its odd colorways are tiers inside it. Hype on a generation lifts the family, hype on one colorway is caught by the tier, and the data never gets sliced too thin to forecast.
 
 It is two projects wearing one repo.
 
-**Data engineering.** Ingest listings from Grailed, eBay, Depop, Vestiaire, The RealReal, and 2nd Street, plus first-hand retail prices from SSENSE, Dover Street Market, and Saks. Then the hard part: the same Margiela piece shows up on three platforms with three titles, three sizing conventions, and three opinions about what "good condition" means. Entity resolution unifies those into one canonical catalog with real price history. That catalog is the spine of everything downstream.
+**Data engineering.** Ingest listings from Grailed, eBay, Depop, Vestiaire, The RealReal, and 2nd Street, plus first-hand retail prices from SSENSE, Dover Street Market, and Saks. Then the hard part: the same Margiela piece shows up on three platforms with three titles, three sizing conventions, and three opinions about what "good condition" means. Entity resolution clusters those into style-families at the grain above, with real price history per family. That catalog is the spine of everything downstream.
 
-**Predictive ML.** Label which canonical pieces became grails, engineer features strictly from the window before the move, and train a deliberately plain gradient-boosted model. The craft goes into honest evaluation: time-based splits, every feature computed as-of the prediction moment, and a naive baseline the model has to beat. Look-ahead bias makes this kind of model look brilliant while predicting nothing, so guarding against it is a first-class requirement, not a footnote.
+**Predictive ML.** Label style-families by peer-relative uplift over the next 60 days, engineer features strictly from the window before the move (including detected celebrity and editorial wear events, text and metadata only, never facial recognition), train a deliberately plain ranking model, and backtest it as a buying decision. Look-ahead bias makes this kind of model look brilliant while predicting nothing, so leak protection is machine-checked, not trusted.
 
 ## Stack
 

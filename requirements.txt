@@ -21,3 +21,9 @@ sqlglot>=23.0  # test-time DDL parsing so CI catches broken schema without a dat
 
 # Phase 4: transformation
 dbt-postgres>=1.8
+
+# Phases 5-6: labeling and features
+# PySpark needs a JVM: Java 11 or 17 (brew install openjdk@17 on macOS)
+pyspark>=3.5,<4.0
+pandera>=0.20
+setuptools>=69  # Python 3.12 removed distutils; pyspark 3.5 still imports it and setuptools shims it

@@ -17,6 +17,18 @@ that matters and four fact tables hanging off it.
                     (the canonical catalog)
 ```
 
+## The family dimension (added in the pivot)
+
+dim_style_families is the forecasting grain: (brand, model_line, era) with
+a natural-key UNIQUE constraint. family_id lives on fact_listings rather
+than dim_items, deliberately: the text matcher can merge near-identical
+generations of the same model line into one canonical item (the two
+Margiela Future generations do exactly this on fixtures), so an item does
+not always map to one family, but a listing always does. colorway and
+colorway_tier sit on the listing row, with a CHECK constraint pinning the
+tier vocabulary, because the tier is a listing-level attribute that
+aggregates up to the family, never a key that splits it.
+
 ## Why the canonical item is the central dimension
 
 Everything this project predicts is a property of a piece, not of a listing.

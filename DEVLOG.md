@@ -145,3 +145,105 @@ The sandbox has no Postgres, so verification split again: dbt parse (structure, 
 **What's next**
 
 Phase 5, labeling. Short on code, long on thinking: what "became a grail" means as a number, and the as-of cutoff that keeps every feature honest.
+
+---
+
+## Labeling the target
+
+**What I built**
+
+ml/label.py: an item labels positive at prediction moment T if its median sold price over (T, T+180d] is at least 1.5x its median over (T-90d, T], minimum two sales per window, moments on an aligned monthly grid clipped to full data coverage. Every labeled row carries its prediction_moment explicitly. Also ml/synth.py, a seeded synthetic market generator (40 items, ~1,500 sales over two years, three named regimes: flat, drift, grail inflection), because the hand-written fixtures span three months and cannot produce one labelable example under a 90d+180d design. Nine new tests. docs/labeling.md confronts the biases at length.
+
+**Why these decisions**
+
+The two decisions I'd defend hardest:
+
+Thin data is excluded, not labeled negative. An (item, moment) without two sales on each side is unmeasurable, and calling it "not a grail" teaches the model that illiquidity means failure. The cost is honest and stated: the earliest, most illiquid phase of a grail's life is invisible to a price-based label.
+
+The leak tests are invariance proofs, not spot checks. Multiply every post-T price by ten and the baseline must not move a cent; rewrite pre-T history and the outcome must not move. Both directions are tested, and the future-spike test also asserts the outcome DID change, so the probe can't silently probe nothing.
+
+A subtle one the step-change test caught by design: an item that already inflated labels negative afterward, because 1100 over 1100 is 1.0. The target is the inflection, not the plateau. That's the difference between predicting up-and-comers and re-discovering known grails.
+
+On the synthetic data: it's a mechanics harness with ground-truth regimes, not a market claim. On it, positives land exclusively on grail-regime items (29% of their moments, the ones whose outcome window catches the ramp) and never on flat or drift items, at a 4.4% overall positive rate. That proves the machinery, and docs/labeling.md is explicit that evidence about real grails waits for real ingested history.
+
+**What I learned or got stuck on**
+
+Nothing stuck, but writing the doc surfaced that the 1.5x threshold needs a sensitivity check in Phase 7's evaluation before any reported number gets trusted. Noted there so it doesn't get lost.
+
+**What's next**
+
+Phase 6, feature engineering in PySpark, every feature as-of the prediction moment, with a leak canary in the tests.
+
+---
+
+## Feature engineering, as-of or nothing
+
+**What I built**
+
+features/build_features.py in PySpark: price momentum, sold velocity, retail spread at cutoff and its trend, search interest slope and acceleration, social mention velocity, plus brand, category, collab and archive flags. Every window ends at the prediction moment, never after. The synthetic generator grew weekly attention series where, for grail items, search and social interest start climbing 30-60 days before the price inflection, which encodes the project's core hypothesis (attention leads price) as a learnable signal. Output is Parquet partitioned by prediction year, gated by Pandera. Nine new tests, 100 total.
+
+**Why these decisions**
+
+Every feature row carries max_source_date_used, the latest source date that touched any of its aggregations, and Pandera fails the entire build if any row's value exceeds its prediction moment. That turns "no look-ahead" from a code-review promise into a machine-checked invariant that travels with the data. The leak canary test goes further: add absurd post-cutoff rows (a 99,999 dollar sale the day after cutoff) and assert the features are bit-identical, via assert_frame_equal with check_exact.
+
+Year partitioning, because the Phase 7 time split selects by prediction moment, so year pruning is the actual read pattern. Item-level partitioning would mean thousands of tiny files for a read path nothing uses.
+
+One Spark action, not two: the job collects once, validates the pandas frame, and lands it via pyarrow with the same partitioning. Writing through Spark as well would re-execute the DAG to serialize a few hundred rows. At real scale the write flips back to Spark; the comment in the code says exactly that.
+
+Nulls are policy, not accident: sold_velocity, brand and category are required non-null; momentum, spread and attention features are nullable because a window with insufficient data has nothing honest to say, and the model phase gets to decide how to treat missingness (gradient-boosted trees handle it natively, which is part of why Phase 7 uses them).
+
+Sanity read on the output: positives average a search slope of 0.30 against 0.007 for negatives, exactly the lead the generator planted. On synthetic data that's a mechanics check, not a discovery, and the evaluation doc will keep saying so.
+
+**What I learned or got stuck on**
+
+Two environment fights worth recording. PySpark in a sandbox without a resolvable hostname dies at JVM launch with an opaque gateway error; the fix is pinning SPARK_LOCAL_IP and the driver bind address to loopback, which is harmless everywhere and now lives in both the builder and the test fixture. And installing a 318MB sdist under a 45-second process cap taught me more about pip's cache layout than I wanted to know.
+
+**What's next**
+
+Phase 7: train the deliberately boring model, split by time, and evaluate it against a naive baseline with precision at k. The 1.5x label threshold sensitivity check lands there too.
+
+---
+
+## The pivot: from grail predictor to reseller decision tool
+
+**What changed and why**
+
+The project reframed mid-build. The old question was "which pieces are about to become grails," a prediction for its own sake. The new question is the one that actually costs a reseller money: what should I buy, what is it worth, and should I hold it or move it. Predicting popularity is only useful if it drives those three calls, so the north star is now operational. Three problems, stacked: demand forecasting per style-family is the spine (peer-relative uplift over the next 60 days), pricing and markdown ride on top as a thin layer (condition-adjusted comps plus a hold-or-move flag, no elasticity model because I can't identify elasticity honestly without experimental price variation), and celebrity/editorial impact becomes a detected feature and a watchlist explainer, never a causal model.
+
+The unit of analysis changes with it. The old build resolved listings toward canonical items. The new grain is Brand, then model-line, then era or generation, with material/colorway tier as a sub-attribute. This came out of the Margiela Future case study: value concentrated in specific generations and specific colorway tiers, not uniformly across every Future ever made. Hype on a generation lifts the family; hype on one colorway is caught by the tier without splintering the data too thin to forecast.
+
+**What survives and what gets reworked**
+
+Phases 0 through 4 survive whole: ingestion doesn't care what the listings mean downstream, and the warehouse and dbt mechanics are grain-agnostic. The resolution pipeline survives below the catalog layer (normalize, blocking, the signal-combining matcher); catalog assembly regains a family layer on top. Labeling keeps its harness (leak invariance tests, thin-data exclusion, the synthetic generator) and swaps the target from an absolute 1.5x threshold to peer-relative uplift on a blended signal. Features keep every as-of control and regrain. The old item-grain labeling and features are being committed as built, alongside this pivot, because the history should show the reframe rather than pretend the project was always this.
+
+The evaluation story changes the most: the headline is no longer precision at k, it's a decision backtest. If a reseller had bought the top flagged families at historical cutoffs and sold when the hold-or-move flag said move, what happens to margin and sell-through against a naive baseline. That's the difference between a model and a tool.
+
+**What's next**
+
+Phase 2c: regrain resolution to style-families, with the model-line and era reference data, colorway tiers, and the schema migration riding along.
+
+---
+
+## Style-families: the regrain
+
+**What I built**
+
+The family layer on top of the existing resolution pipeline, none of which changed. New reference data: model_lines.json (per-brand alias vocabularies with era tables where I can document release history, seeded with the Margiela Future generations from the case study) and colorways.json (extraction vocabulary plus per-line tier maps). resolution/family.py assigns (brand, model_line, era) and a colorway tier per listing; catalog.py now assembles both layers, items below for comps, families above for forecasting. Readable family ids like maison-margiela__future-high-top__yeezus-era-2013-2014, because a self-documenting key beats a hash in every downstream table. Schema gains dim_style_families plus family_id, colorway, colorway_tier on fact_listings; the loader loads them; the dbt marts regrained to mart_family_price_history and mart_family_current_state, the latter now carrying a rare-tier premium ratio. Twelve new tests, 124 total.
+
+**Why these decisions**
+
+family_id lives on the listing, not the item. The first full run showed why: the text matcher merged the 2013 and 2018 Futures into one canonical item, because on titles alone they are near-identical. The era table caught it, the conflict logged, and the two generations landed in separate families. An item can span eras when text blurs generations; a listing always knows its family. The grain survives the matcher's mistakes, which is the whole point of layering them.
+
+Identity propagation is the piece that makes the grain usable on real listings. Most listings carry no year and many are titled by people who can't spell the model line. But when the matcher has already decided "RO leather high top black sz 10" is the same product as the FW10 Geobasket, that listing inherits the model line and the era through the item, with conflicts refusing to propagate. Family coverage on fixtures went from 66% to 81% on this one mechanism, and the sparse Vestiaire titles that motivated the Phase 2b discussion get family membership for free.
+
+Colorway tier stays out of the family key without exception. The Geobasket family holds core black and rare dust as tiers inside it, and the current-state mart exposes the rare-tier premium as a ratio over the family median. Splitting on colorway would have given cleaner per-colorway price signal and data too thin to forecast; the case study said generation-level moves and colorway-level moves both happen, so the grain has to carry both without fragmenting.
+
+The residual is honest and useful: six fixture listings have no resolvable model line, including the 2nd Street NAVY cardigan phrased without any alias the vocabulary knows. That's where domain knowledge enters the project as data: the vocabulary file grows with real volume, and knowing that "mohair cardigan navy 03SS" from a Japanese seller IS the Kurt is exactly the edge a keyword list can't fake.
+
+**What I learned or got stuck on**
+
+The era fragmentation problem showed up in the first run: one FW10-tagged Geobasket in the right era, four siblings stranded in era-unknown. The fix wasn't better parsing, it was realizing the item layer already held the answer. Resolution layers should feed each other.
+
+**What's next**
+
+Labeling v2: peer-relative uplift on a blended signal at the family grain, with the synth generator regrown to families and peer structure.

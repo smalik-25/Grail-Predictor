@@ -27,6 +27,23 @@ CREATE TABLE IF NOT EXISTS dim_items (
 
 CREATE INDEX IF NOT EXISTS idx_dim_items_brand ON dim_items (brand);
 
+-- The forecasting grain: Brand -> Model-line -> Era. Colorway tier is an
+-- attribute on listings, never part of this key. family_id lives on
+-- fact_listings rather than dim_items because a canonical item can span
+-- eras when the text matcher merges near-identical generations; the
+-- listing is the row that knows its family for certain.
+CREATE TABLE IF NOT EXISTS dim_style_families (
+    family_id       TEXT PRIMARY KEY,
+    brand           TEXT NOT NULL,
+    model_line      TEXT NOT NULL,
+    era             TEXT NOT NULL,
+    colorway_tiers  TEXT,  -- comma-joined distinct tiers seen, informational
+    first_seen_date DATE,
+    CONSTRAINT uq_family_natural_key UNIQUE (brand, model_line, era)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dim_style_families_brand ON dim_style_families (brand);
+
 -- ---------------------------------------------------------------------------
 -- Facts
 -- ---------------------------------------------------------------------------
@@ -38,6 +55,9 @@ CREATE INDEX IF NOT EXISTS idx_dim_items_brand ON dim_items (brand);
 CREATE TABLE IF NOT EXISTS fact_listings (
     listing_id        BIGSERIAL PRIMARY KEY,
     item_id           TEXT NOT NULL REFERENCES dim_items (item_id),
+    family_id         TEXT REFERENCES dim_style_families (family_id),
+    colorway          TEXT,
+    colorway_tier     TEXT CHECK (colorway_tier IN ('core', 'rare', 'standard', 'unknown')),
     platform_id       INTEGER NOT NULL REFERENCES dim_platforms (platform_id),
     listing_url       TEXT,
     listed_date       DATE,
@@ -54,6 +74,7 @@ CREATE TABLE IF NOT EXISTS fact_listings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_fact_listings_item ON fact_listings (item_id);
+CREATE INDEX IF NOT EXISTS idx_fact_listings_family ON fact_listings (family_id);
 CREATE INDEX IF NOT EXISTS idx_fact_listings_listed_date ON fact_listings (listed_date);
 CREATE INDEX IF NOT EXISTS idx_fact_listings_sold_date ON fact_listings (sold_date) WHERE sold_date IS NOT NULL;
 

@@ -6,6 +6,9 @@ with fx as (
 select
     l.listing_id,
     l.item_id,
+    l.family_id,
+    l.colorway,
+    l.colorway_tier,
     p.platform_name,
     l.listing_url,
     l.listed_date,

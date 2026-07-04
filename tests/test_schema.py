@@ -18,9 +18,14 @@ def test_schema_parses_as_postgres() -> None:
 
 
 def test_schema_declares_expected_tables() -> None:
-    for table in ("dim_platforms", "dim_items", "fact_listings",
+    for table in ("dim_platforms", "dim_items", "dim_style_families", "fact_listings",
                   "fact_retail_prices", "fact_search_interest", "fact_social_mentions"):
         assert f"CREATE TABLE IF NOT EXISTS {table}" in SCHEMA
+
+
+def test_schema_keeps_family_grain_contracts() -> None:
+    assert "uq_family_natural_key UNIQUE (brand, model_line, era)" in SCHEMA
+    assert "colorway_tier IN ('core', 'rare', 'standard', 'unknown')" in SCHEMA
 
 
 def test_schema_keeps_idempotency_natural_keys() -> None:

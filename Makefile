@@ -1,6 +1,6 @@
 # Finalized in Phase 9. Targets appear as their phases are built.
 
-.PHONY: test ingest resolve db-up load transform
+.PHONY: test ingest resolve db-up load transform label features
 
 test:
 	pytest
@@ -19,3 +19,9 @@ load:
 
 transform:
 	cd dbt_project && dbt build --profiles-dir .
+
+label:
+	python -m ml.label --source synth
+
+features:
+	python -m features.build_features --source synth

@@ -1,0 +1,18 @@
+{
+  "_comment": "Colorway vocabulary for extraction from titles, and per model-line tier maps. Tiers: 'core' colorways are the always-in-demand staples, 'rare' carry a scarcity premium, 'standard' is a recognized colorway with no tier opinion yet, 'unknown' means no colorway was found in the listing text. Tier maps grow with real data; unmapped known colorways default to 'standard'.",
+  "vocabulary": [
+    "black", "white", "milk", "dust", "pearl", "chalk", "bone", "natural",
+    "grey", "gray", "charcoal", "navy", "blue", "red", "oxblood", "burgundy",
+    "green", "olive", "brown", "tan", "beige", "cream", "silver", "gold"
+  ],
+  "tiers": {
+    "Rick Owens": {
+      "Geobasket": {"black": "core", "milk": "core", "dust": "rare", "pearl": "rare"},
+      "Ramones": {"black": "core", "milk": "core"}
+    },
+    "Maison Margiela": {
+      "GAT Replica": {"white": "core", "grey": "core", "gray": "core"},
+      "Future High-Top": {"black": "core", "white": "core", "gold": "rare", "silver": "rare"}
+    }
+  }
+}

@@ -164,7 +164,7 @@ def catalog_result():
 
 
 def test_catalog_resolves_cross_platform_items(catalog_result) -> None:
-    items, report, _ = catalog_result
+    items, _, report, _ = catalog_result
     geobasket = next(i for i in items if "geobasket" in i.canonical_title.lower()
                      or "geo basket" in i.canonical_title.lower())
     platforms = {member.raw.platform for member in geobasket.listings}
@@ -174,7 +174,7 @@ def test_catalog_resolves_cross_platform_items(catalog_result) -> None:
 
 
 def test_catalog_keeps_ramones_and_geobasket_apart(catalog_result) -> None:
-    items, _, _ = catalog_result
+    items, _, _, _ = catalog_result
     for item in items:
         titles = " | ".join(m.raw.title.lower() for m in item.listings)
         assert not ("ramones" in titles and "geobasket" in titles), (
@@ -183,7 +183,7 @@ def test_catalog_keeps_ramones_and_geobasket_apart(catalog_result) -> None:
 
 
 def test_catalog_reports_borderline_pairs_for_review(catalog_result) -> None:
-    _, report, borderline = catalog_result
+    _, _, report, borderline = catalog_result
     assert report.borderline_pairs == len(borderline) > 0
 
 
@@ -192,6 +192,7 @@ def test_catalog_ids_are_deterministic(catalog_result) -> None:
     from ingestion.ebay import EbayClient
 
     listings = [r for c in (GrailedClient(), EbayClient()) for r in c.listings()]
-    first, _, _ = build_catalog(listings)
-    second, _, _ = build_catalog(listings)
+    first, first_families, _, _ = build_catalog(listings)
+    second, second_families, _, _ = build_catalog(listings)
     assert [i.item_id for i in first] == [i.item_id for i in second]
+    assert [f.family_id for f in first_families] == [f.family_id for f in second_families]
