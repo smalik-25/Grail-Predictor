@@ -303,3 +303,29 @@ The bug that actually cost time: a brand-wide event carries a null family_id, an
 **What's next**
 
 Phase 7 for real: retarget train and evaluate to the peer-relative target on the family-grain features, now that the celebrity columns are real and reproducible from committed code, with the celebrity importance read as a mechanics check on the planted signal.
+
+---
+
+## Training and evaluating the watchlist, and a baseline I could not beat
+
+**What I built**
+
+The retargeted train and evaluate. train.py and evaluate.py were still the old item-grain stubs, wrong feature names, keyed on item_id, one feature that no longer exists. Now train.py reads the family-grain feature set (own-history, the four peer z-scores, the rare-tier premium, the celebrity count and recency), splits by time at 2025-09-01, fits a near-default LightGBM classifier on the peer-relative label, and logs and registers the run to the MLflow Postgres backend. evaluate.py scores the test watchlist with precision@k and recall@k against the naive rising-search baseline, reads feature importance with a leak smell test and a specific look at the celebrity features, and runs a z-by-edge threshold sensitivity that re-thresholds the stored label z and edge rather than recomputing anything. New deps in requirements (scikit-learn, lightgbm, mlflow), two new Makefile targets, docs/evaluation.md, and eight tests on the split and the metrics. 149 pass with the database up.
+
+**Why these decisions**
+
+The split date is a data fact, not a preference. The positives are not spread evenly, they cluster in the 2025 grail wave, so a split has to land inside that wave or one side comes up with zero positives and the run refuses to start. 2025-09-01 gives 17 positive rows in train against 18 in test, the most balanced cut the coverage allows. Seventeen training positives is thin, and I would rather name that as a ceiling on what the model can learn than pretend the sample is bigger than it is.
+
+The model stays boring on purpose, a LightGBM classifier at near-default settings, 200 small trees. The whole bet of this project is that the clean catalog, the peer-relative label, and the leak controls are the work, not the architecture. Which is why I did not tune the model until it edged past the baseline. That would have been fitting the generator and calling it a win.
+
+Because the honest result is that the model does not beat the naive baseline here. The baseline ranks families by raw rising search interest and takes the top k. At the top of the watchlist, where a reseller with finite capital actually buys, the two are tied and both perfect: precision@5 and precision@10 are 1.00 for the model and 1.00 for the baseline. Deeper down the baseline pulls ahead, precision@20 0.75 against 0.85, PR-AUC 0.94 against 0.96. The reason is in the synth generator: it makes search lead the price inflection almost deterministically, so raw search slope sits close to the data-generating mechanism, and beating a near-oracle feature from 17 positives is a tall order. On a real market where search is noisy and leads inconsistently the peer-relative and celebrity features have room to add over the raw screen, but the synthetic data cannot test that claim and I did not dress it up as though it had. The plan said if the signal is weak, say so, and the pitch was always the decision backtest, not the ranking score.
+
+Two things in the evaluation are worth keeping. The feature importance reads correctly: search and its peer z-score lead, celebrity_recency_days lands at rank 3 and celebrity_event_count at rank 10, which is the Phase 6b signal showing up exactly where it was planted, a mechanics check and nothing more, and brand and category sit at zero importance, which is the leak check passing, because a static attribute topping a time-sensitive target would mean the model had memorized which brands get labeled. And the threshold sensitivity, free because the label stores its raw z and edge, shows the default cell reproducing the 35 labeled positives exactly, and the count moving with the edge floor but not with z, since the real positives sit comfortably above z=2.5. The binding knob is the edge, which is worth knowing before Phase 8 decides how long the watchlist should be.
+
+**What I learned or got stuck on**
+
+Installing mlflow quietly pulled pandas from 3.0 back to 2.3. That is the more standard version for this pyspark stack, the full suite stayed green across it, so I took the downgrade rather than fight it. The more interesting lesson was the baseline. It is easy to build an evaluation that flatters the model by omitting the obvious screen it should be measured against, and the moment the naive search baseline went in, the comfortable precision numbers had company that beat them. That is the evaluation doing its job. A watchlist model that ties the "flag whatever people are googling" screen at the top and trails it at the tail is a real finding to carry into the backtest, not something to bury.
+
+**What's next**
+
+Phase 8, the decision backtest, the headline deliverable. Reuse the as-of machinery to rebuild the watchlist as it would have looked at historical cutoffs, simulate a stated buying policy in margin and sell-through terms, and compare against buy-nothing and buy-the-search-screen baselines. Build 8b, the pricing and hold-or-move layer, alongside it, since the simulated sell decision calls it.

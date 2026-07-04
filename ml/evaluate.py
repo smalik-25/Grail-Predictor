@@ -8,8 +8,9 @@ just ranks by rising search interest, because a model that can't beat
 "flag whatever people are googling more" has no reason to exist.
 
 Also here: the label-threshold sensitivity check (labels carry their raw
-appreciation_ratio, so re-thresholding is free) and a feature-importance
-sanity read, looking for anything that smells like leakage.
+peer_z and uplift_edge, so re-thresholding is free) and a feature-importance
+sanity read, looking for anything that smells like leakage, with a specific
+look at the celebrity features whose high importance on synth is expected.
 """
 from __future__ import annotations
 
@@ -32,12 +33,29 @@ K_VALUES = (5, 10, 20)
 
 
 def precision_at_k(frame: pd.DataFrame, score_column: str, k: int) -> float:
+    """Of the top-k flagged families, the fraction that actually outperformed
+    their peers. The product question: flag k up-and-comers, how many popped."""
     top = frame.nlargest(k, score_column)
     return float(top["label"].mean()) if len(top) else 0.0
 
 
+def recall_at_k(frame: pd.DataFrame, score_column: str, k: int) -> float:
+    """Of all the families that outperformed, the fraction the top-k caught.
+    Precision asks if the watchlist is clean; recall asks if it is complete."""
+    total_positives = int(frame["label"].sum())
+    if total_positives == 0:
+        return 0.0
+    top = frame.nlargest(k, score_column)
+    return float(top["label"].sum() / total_positives)
+
+
 def compute_metrics(predictions: pd.DataFrame) -> dict:
-    """Model metrics side by side with the naive search-interest baseline."""
+    """Model metrics side by side with the naive search-interest baseline.
+
+    The baseline ranks by raw rising search interest (search_slope_60d), the
+    "flag whatever people are googling more" screen. A model that cannot beat
+    it on precision@k has no reason to exist, so every k reports both.
+    """
     from sklearn.metrics import average_precision_score, precision_score, recall_score
 
     labels = predictions["label"].astype(int)
@@ -48,28 +66,63 @@ def compute_metrics(predictions: pd.DataFrame) -> dict:
     metrics: dict = {
         "test_rows": int(len(predictions)),
         "test_positives": int(labels.sum()),
+        "positive_rate": float(labels.mean()),
         "precision_at_0.5": float(precision_score(labels, binary, zero_division=0)),
         "recall_at_0.5": float(recall_score(labels, binary, zero_division=0)),
         "pr_auc": float(average_precision_score(labels, predictions["score"])),
         "pr_auc_baseline": float(average_precision_score(labels, baseline["baseline_score"])),
-        "positive_rate": float(labels.mean()),
     }
     for k in K_VALUES:
         metrics[f"precision_at_{k}"] = precision_at_k(predictions, "score", k)
         metrics[f"precision_at_{k}_baseline"] = precision_at_k(baseline, "baseline_score", k)
+        metrics[f"recall_at_{k}"] = recall_at_k(predictions, "score", k)
+        metrics[f"recall_at_{k}_baseline"] = recall_at_k(baseline, "baseline_score", k)
     return metrics
 
 
-def threshold_sensitivity(labels: pd.DataFrame) -> dict[str, float]:
-    """Positive rate under alternative appreciation thresholds.
+Z_THRESHOLDS = (1.5, 2.0, 2.5)
+EDGE_THRESHOLDS = (0.10, 0.15, 0.25)
 
-    The 1.5x label threshold is a judgment call; this shows how much the
-    problem changes if it moves. Rates that swing wildly would mean the
-    labels sit on a knife edge of the threshold, which itself is a finding.
+
+def threshold_sensitivity(labels: pd.DataFrame) -> dict[str, int]:
+    """Positive counts under alternative label thresholds.
+
+    The label calls a family positive at peer_z >= 2.0 and uplift_edge >=
+    0.15. Both knobs are judgment calls. Because the label stores the raw z
+    and edge per row, this is pure re-thresholding, not recomputation: for
+    each (z, edge) pair, count the peer-measurable rows that clear both. The
+    default cell (z2.0, edge0.15) can sit slightly above the labeled count,
+    because re-thresholding does not re-apply the sales-count and spread
+    floors the labeler also enforces; that gap is stated, not hidden.
+    Counts that swing wildly would mean the watchlist sits on a knife edge.
     """
+    measurable = labels.dropna(subset=["peer_z"])
+    counts: dict[str, int] = {"peer_measurable_rows": int(len(measurable))}
+    for z in Z_THRESHOLDS:
+        for edge in EDGE_THRESHOLDS:
+            hit = (measurable["peer_z"] >= z) & (measurable["uplift_edge"] >= edge)
+            counts[f"z{z}_edge{edge}"] = int(hit.sum())
+    return counts
+
+
+CELEBRITY_FEATURES = ("celebrity_event_count_90d", "celebrity_recency_days")
+
+
+def celebrity_importance_read(feature_importance: dict[str, float]) -> dict:
+    """The celebrity features get a specific look, because on synth the
+    events are planted to lead grail inflections, so high importance is
+    EXPECTED and is a mechanics check, not a market finding. This surfaces
+    their rank and share so the write-up can say so plainly."""
+    ranked = sorted(feature_importance.items(), key=lambda kv: -kv[1])
+    total = sum(feature_importance.values()) or 1
+    order = {name: rank for rank, (name, _) in enumerate(ranked, start=1)}
     return {
-        f"positive_rate_at_{threshold}x": float((labels["appreciation_ratio"] >= threshold).mean())
-        for threshold in (1.3, 1.5, 1.8, 2.0)
+        name: {
+            "importance": float(feature_importance.get(name, 0.0)),
+            "share": float(feature_importance.get(name, 0.0) / total),
+            "rank": order.get(name),
+        }
+        for name in CELEBRITY_FEATURES
     }
 
 
@@ -105,6 +158,7 @@ def evaluate() -> dict:
         "metrics": compute_metrics(predictions),
         "threshold_sensitivity": threshold_sensitivity(labels),
         "feature_importance": model_info["feature_importance"],
+        "celebrity_importance": celebrity_importance_read(model_info["feature_importance"]),
         "leakage_warnings": leakage_smell_test(model_info["feature_importance"]),
         "split_date": model_info["split_date"],
         "data_kind": "synthetic",  # flips to 'live' when real history trains the model

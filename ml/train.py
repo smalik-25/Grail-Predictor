@@ -6,10 +6,10 @@ and the leak-proof features. A clever architecture on top of those would
 add variance, not credibility.
 
 The split is by TIME, never random. Train on earlier prediction moments,
-test on later ones. A random split would put a January observation of an
-item in train and its March observation in test: the model would be graded
-on items whose future it partially saw, and the score would be a pleasant
-lie. The split boundary is logged to MLflow along with everything else.
+test on later ones. A random split would put a January observation of a
+family in train and its March observation in test: the model would be
+graded on families whose future it partially saw, and the score would be a
+pleasant lie. The split boundary is logged to MLflow along with everything else.
 
 Tracking: MLflow via MLFLOW_TRACKING_URI. The real setup is the local
 Postgres (postgresql+psycopg2://grail:grail@localhost:5432/grail), the same
@@ -42,23 +42,41 @@ MODEL_INFO_PATH = PROCESSED_DIR / "model_info.json"
 
 CATEGORICAL_FEATURES = ("brand", "category")
 NUMERIC_FEATURES = (
-    "price_momentum_90d",
+    # own-history, at the family grain
+    "price_momentum_60d",
     "sold_velocity_30d",
     "spread_at_cutoff",
-    "spread_trend",
+    "rare_tier_premium",
     "search_slope_60d",
     "search_accel",
     "social_velocity_60d",
+    # peer-relative transforms: the model of a peer-relative target needs
+    # peer-relative inputs to have a fair chance
+    "price_momentum_60d_peer_z",
+    "sold_velocity_30d_peer_z",
+    "search_slope_60d_peer_z",
+    "social_velocity_60d_peer_z",
+    "peer_group_size",
+    # celebrity signal, real as of Phase 6b
+    "celebrity_event_count_90d",
+    "celebrity_recency_days",
+    # statics
     "collab_flag",
     "archive_flag",
 )
 FEATURE_COLUMNS = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
+# The naive baseline the model has to beat: rank by raw rising search
+# interest. Carried into the predictions frame so evaluate can score it.
+BASELINE_FEATURE = "search_slope_60d"
+
 
 @dataclass(frozen=True)
 class TrainConfig:
-    split_date: datetime.date = datetime.date(2025, 7, 1)
-    n_estimators: int = 300
+    # positives cluster in the 2025 grail wave; this boundary leaves ~17 in
+    # train and ~18 in test, the most balanced split the coverage allows.
+    split_date: datetime.date = datetime.date(2025, 9, 1)
+    n_estimators: int = 200
     learning_rate: float = 0.05
     num_leaves: int = 15  # small trees: few features, few hundred rows
     seed: int = 7
@@ -125,8 +143,8 @@ def train(config: TrainConfig = TrainConfig()) -> dict:
         model.fit(prepare_matrix(train_frame), train_frame["label"])
 
         scores = model.predict_proba(prepare_matrix(test_frame))[:, 1]
-        predictions = test_frame[["item_id", "prediction_moment", "label",
-                                  "search_slope_60d", "price_momentum_90d"]].copy()
+        predictions = test_frame[["family_id", "prediction_moment", "label",
+                                  BASELINE_FEATURE, "price_momentum_60d"]].copy()
         predictions["score"] = scores
         predictions.to_parquet(PREDICTIONS_PATH, index=False)
 

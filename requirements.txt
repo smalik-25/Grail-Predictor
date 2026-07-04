@@ -27,3 +27,8 @@ dbt-postgres>=1.8
 pyspark>=3.5,<4.0
 pandera>=0.20
 setuptools>=69  # Python 3.12 removed distutils; pyspark 3.5 still imports it and setuptools shims it
+
+# Phase 7: modeling and tracking
+scikit-learn>=1.4
+lightgbm>=4.3
+mlflow>=3.0  # 3.x retired the file store; the Postgres backend is the real one
