@@ -16,8 +16,8 @@ A decision tool for small and mid-size resellers of archive and avant-garde fash
 - [x] Phase 6: Feature engineering, peer-set and colorway features
 - [x] Phase 6b: Celebrity/editorial signal detection
 - [x] Phase 7: Train and evaluate
-- [ ] Phase 8: Decision backtest
-- [ ] Phase 8b: Pricing and hold-or-move layer
+- [x] Phase 8: Decision backtest
+- [x] Phase 8b: Pricing and hold-or-move layer
 - [ ] Phase 9: Dashboard, reseller framing
 - [ ] Phase 10: Deploy, containerize, finalize
 

@@ -329,3 +329,57 @@ Installing mlflow quietly pulled pandas from 3.0 back to 2.3. That is the more s
 **What's next**
 
 Phase 8, the decision backtest, the headline deliverable. Reuse the as-of machinery to rebuild the watchlist as it would have looked at historical cutoffs, simulate a stated buying policy in margin and sell-through terms, and compare against buy-nothing and buy-the-search-screen baselines. Build 8b, the pricing and hold-or-move layer, alongside it, since the simulated sell decision calls it.
+
+---
+
+## The pricing layer: worth as a range, hold-or-move as a rule
+
+**What I built**
+
+ml/pricing.py, the thin layer Phase 8 leans on. Two questions. Worth: the median of a family's sold comps in a trailing 60-day window ending at the as-of date, condition-adjusted to a reference grade, returned as a range (the 25th and 75th alongside the median) rather than a single number. Hold-or-move: a rule, not a forecast. Past the hold horizon, move regardless. No demand signal to justify a hold, move. Signal below the fade floor, move. Otherwise hold and let it run. Eleven tests on the window, the min-comps refusal, the tier filter, the condition normalization, the as-of leak, and each branch of the flag.
+
+**Why these decisions**
+
+A range, not a point, because a point is false precision on a market this thin. A worth estimate off three comps that reads "$1,240" is lying about what it knows; "$1,050 to $1,400, median $1,240, three comps" is the truth, and the range is what a reseller actually negotiates against.
+
+No elasticity model, by the plan, and no price forecast in the flag. The hold-or-move decision is driven by the demand signal the model already produces, not by a second model predicting price. That keeps the layer honest about what it is: a rule that says ride the piece while the watchlist still believes in it and clear it when the belief fades or the capital has sat too long. The thresholds are stated, not tuned into a black box.
+
+The condition adjustment is built and tested but is a no-op on synth, because the synthetic sales carry no condition grade. I built the mechanism anyway, normalizing each comp to a reference grade before taking the median, because it is real on real data and I would rather ship the seam than pretend condition does not move price. The docstring and the backtest doc both say plainly that it does nothing on the fixtures.
+
+The as-of rule is the same one the rest of the pipeline lives by. A worth estimate dated T reads only sales at or before T, and there is a leak test that adds a wild sale one day after the cutoff and asserts the number does not move. The backtest could not be trusted without it.
+
+**What I learned or got stuck on**
+
+Nothing dramatic. The one judgment call was the window length: a short window tracks the current price but goes empty on thin families, a long one is stable but lags a fast move. Sixty days matches the label's baseline window and kept enough comps on the synth families to price nearly every buy. It is a config knob, not a law.
+
+**What's next**
+
+Phase 8 proper, the backtest that calls this.
+
+---
+
+## The decision backtest, and the model earning its keep by knowing when not to buy
+
+**What I built**
+
+ml/backtest.py, the headline. It rebuilds the watchlist at seven out-of-sample monthly cutoffs, 2025-09 through 2026-03, simulates a stated buying policy, and reports it in reseller terms: gross margin, return per trade, days to sell, watchlist precision, and price realization. Three policies over the same cutoffs with the same sell logic so only the buy decision varies: the model (buy families scoring above 0.5), the naive search screen (buy anything with rising search interest), and buy-nothing. Eight tests, including the leak guard that perturbs the future and asserts the cutoff watchlist does not move. docs/backtest.md, written honestly, synthetic caveat on every figure.
+
+The result: the model realizes about $2,260 across fourteen trades at 38.6% per trade with perfect precision, against the naive screen's $1,367 across thirty-five trades at 13.8% and 49% precision, both beating the buy-nothing floor of zero.
+
+**Why these decisions**
+
+The comparison had to be apples-to-apples, so all three policies use the same model-driven sell logic and the same prices, and differ only in what they buy. That isolates the buy decision, which is the thing being evaluated. The baseline is the same naive rising-search screen Phase 7 measured against, so the two phases tell one continuous story.
+
+The decision that made the result honest was gating the watchlist instead of forcing a fixed top-k. My first cut bought the top five families every cutoff no matter what, and the two policies came out nearly tied, about $1,330 each, because in a forced top-five they buy almost the same basket. That tie is real but it hides the point. A watchlist that must name five families every month buys junk in a quiet market, and the per-cutoff breakdown showed exactly that: both policies lost $400 to $580 a month across the 2026 quiet quarter when there were no real outperformers to buy. So I gated each policy by its own honest flag, the model by its 0.5 probability bar, the search screen by a positive slope, which is the literal "rising interest" screen. That one change is what let the model's calibration show up as money.
+
+Because the finding is not that the model picks better in the wave. It does not. In September and October the two buy the identical five families for the identical dollars, the same tie Phase 7's precision@k already reported. The naive screen actually makes more gross inside the wave, because it keeps buying the marginal families in November and December that the model's bar filters out, and on synth those still paid. The model wins on discipline: from January on its scores collapse below the bar and it buys nothing and loses nothing, while the screen has no bar, keeps flagging five families a month out of the noise, and gives back more in the quiet quarter than its wider wave haul was worth. The edge is higher conviction per trade and the willingness to stop.
+
+That is the argument for why the backtest is the headline and the ranking score was not. Precision@k forces exactly k picks; it cannot express "buy fewer this month" or "buy none". The margin question can, and it is the only place the model's calibration turns into dollars.
+
+**What I learned or got stuck on**
+
+The forced top-k tie was the lesson, and I left the story of it in the DEVLOG and the doc rather than quietly shipping the gated version as if it were obvious. The gate is also where the honesty has to be loudest: the model's clean abstention leans on synthetic scores that go nearly binary, near 1 while a family runs and near 0 once it is done, so the quiet-period discipline is crisper than graded real-world scores would ever be. The doc says that in as many words. The framework is the deliverable; the 38.6% is a demonstration of the framework, not a number to believe.
+
+**What's next**
+
+Phase 9, the Streamlit dashboard, framed as the reseller's decisions: the watchlist with plain-language reasons, a family explorer with the worth estimate and the hold-or-move flag, the backtest as proof, and the model report with its limits visible. Thin Python over the marts and the model output.

@@ -1,6 +1,6 @@
 # Finalized in Phase 9. Targets appear as their phases are built.
 
-.PHONY: test ingest resolve db-up load transform label features celebrity train evaluate
+.PHONY: test ingest resolve db-up load transform label features celebrity train evaluate backtest
 
 test:
 	pytest
@@ -34,3 +34,6 @@ train:
 
 evaluate:
 	python -m ml.evaluate
+
+backtest:
+	python -m ml.backtest
